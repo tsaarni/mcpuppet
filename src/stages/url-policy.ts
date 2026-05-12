@@ -1,5 +1,5 @@
 // URL safety policy: blocks private/loopback/internal IP ranges and non-HTTP(S) schemes to prevent SSRF attacks.
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::', '::1']);
 const PRIVATE_RANGES = [
@@ -93,7 +93,7 @@ export const validateUrlPolicy = (rawUrl: string): URL => {
   return parsed;
 };
 
-export const urlPolicyFilter: Filter = {
+export const urlPolicyStage: Stage = {
   name: 'url-policy',
   async execute(ctx) {
     if (!ctx.url) {

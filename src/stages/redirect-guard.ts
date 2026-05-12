@@ -1,9 +1,9 @@
-// Filter that rejects pages that exceeded the redirect limit and re-validates the final URL against the URL policy.
+// Stage that rejects pages that exceeded the redirect limit and re-validates the final URL against the URL policy.
 import { config } from '../config.ts';
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 import { validateUrlPolicy } from './url-policy.ts';
 
-export const redirectGuardFilter: Filter = {
+export const redirectGuardStage: Stage = {
   name: 'redirect-guard',
   async execute(ctx) {
     const redirectCount = ctx.redirectCount ?? 0;

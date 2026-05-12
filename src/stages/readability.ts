@@ -1,10 +1,10 @@
-// Filter that uses Mozilla Readability to extract the main article content from raw HTML, discarding boilerplate.
+// Stage that uses Mozilla Readability to extract the main article content from raw HTML, discarding boilerplate.
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 
-export const readabilityFilter: Filter = {
+export const readabilityStage: Stage = {
   name: 'readability',
   async execute(ctx) {
     if (!ctx.html || !ctx.url) {

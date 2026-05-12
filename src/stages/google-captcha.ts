@@ -2,10 +2,10 @@
 // user to solve it manually in the browser window. After resolution, waits for
 // search result selectors to appear before handing control back.
 import { config } from '../config.ts';
-import type { Filter, FilterContext } from '../types.ts';
+import type { Stage, StageContext } from '../types.ts';
 import { logger } from '../util/log.ts';
 
-const isCaptchaPage = async (ctx: FilterContext): Promise<boolean> =>
+const isCaptchaPage = async (ctx: StageContext): Promise<boolean> =>
   ctx.page!.evaluate(() => {
     const body = document.body?.textContent ?? '';
     return (
@@ -15,9 +15,9 @@ const isCaptchaPage = async (ctx: FilterContext): Promise<boolean> =>
     );
   });
 
-export const googleCaptchaFilter: Filter = {
+export const googleCaptchaStage: Stage = {
   name: 'google-captcha',
-  async execute(ctx: FilterContext): Promise<FilterContext> {
+  async execute(ctx: StageContext): Promise<StageContext> {
     if (!ctx.page) {
       return ctx;
     }

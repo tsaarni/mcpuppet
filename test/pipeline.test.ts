@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { runPipeline } from '../src/pipeline.ts';
-import type { Filter } from '../src/types.ts';
+import type { Stage } from '../src/types.ts';
 
-test('runPipeline executes filters in order', async () => {
-  const pipeline: Filter[] = [
+test('runPipeline executes stages in order', async () => {
+  const pipeline: Stage[] = [
     {
       name: 'first',
       async execute(ctx) {
@@ -26,7 +26,7 @@ test('runPipeline executes filters in order', async () => {
 });
 
 test('runPipeline propagates errors', async () => {
-  const pipeline: Filter[] = [
+  const pipeline: Stage[] = [
     {
       name: 'boom',
       async execute() {

@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { runPipeline } from '../src/pipeline.ts';
-import { cleanHtmlFilter } from '../src/filters/clean-html.ts';
-import { contentFenceFilter } from '../src/filters/content-fence.ts';
-import { redirectGuardFilter } from '../src/filters/redirect-guard.ts';
-import { sanitizeDomFilter } from '../src/filters/sanitize-dom.ts';
-import { validateUrlPolicy, extractIPv4Compatible } from '../src/filters/url-policy.ts';
+import { cleanHtmlStage } from '../src/stages/clean-html.ts';
+import { contentFenceStage } from '../src/stages/content-fence.ts';
+import { redirectGuardStage } from '../src/stages/redirect-guard.ts';
+import { sanitizeDomStage } from '../src/stages/sanitize-dom.ts';
+import { validateUrlPolicy, extractIPv4Compatible } from '../src/stages/url-policy.ts';
 import { shouldEnforcePolicy } from '../src/tools/fetch-url.ts';
 import { config } from '../src/config.ts';
-import type { Filter } from '../src/types.ts';
+import type { Stage } from '../src/types.ts';
 
 test('shouldEnforcePolicy enforces for navigation and http/https sub-resources only', () => {
   // Navigation always enforced regardless of scheme.
@@ -90,7 +90,7 @@ test('extractIPv4Compatible – dotted and hex forms', () => {
 test('redirect-guard rejects when redirect count exceeds limit', async () => {
   await assert.rejects(
     () =>
-      redirectGuardFilter.execute({
+      redirectGuardStage.execute({
         url: 'https://example.com',
         redirectCount: config.maxRedirects + 1,
         warnings: [],
@@ -102,7 +102,7 @@ test('redirect-guard rejects when redirect count exceeds limit', async () => {
 test('redirect-guard rejects redirect to private IP', async () => {
   await assert.rejects(
     () =>
-      redirectGuardFilter.execute({
+      redirectGuardStage.execute({
         url: 'http://192.168.1.1/secret',
         redirectCount: 1,
         warnings: [],
@@ -113,7 +113,7 @@ test('redirect-guard rejects redirect to private IP', async () => {
 
 test('sanitize-dom strips comments and aria-hidden', async () => {
   const input = '<html><body><!--secret--><p aria-hidden="true">x</p><p>ok</p></body></html>';
-  const out = await sanitizeDomFilter.execute({ html: input, warnings: [] });
+  const out = await sanitizeDomStage.execute({ html: input, warnings: [] });
 
   assert.match(out.html ?? '', /ok/);
   assert.doesNotMatch(out.html ?? '', /secret/);
@@ -122,7 +122,7 @@ test('sanitize-dom strips comments and aria-hidden', async () => {
 
 test('clean-html strips nav/header/footer/script', async () => {
   const input = '<html><body><header>x</header><nav>n</nav><main>ok</main><footer>f</footer><script>bad()</script></body></html>';
-  const out = await cleanHtmlFilter.execute({ html: input, warnings: [] });
+  const out = await cleanHtmlStage.execute({ html: input, warnings: [] });
 
   assert.match(out.html ?? '', /ok/);
   assert.doesNotMatch(out.html ?? '', /<header/);
@@ -132,7 +132,7 @@ test('clean-html strips nav/header/footer/script', async () => {
 });
 
 test('content-fence wraps markdown correctly', async () => {
-  const out = await contentFenceFilter.execute({
+  const out = await contentFenceStage.execute({
     url: 'https://example.com',
     markdown: 'content',
     warnings: [],
@@ -154,8 +154,8 @@ test('content-fence wraps markdown correctly', async () => {
   assert.match(md, /\]\]><\/content-markdown>/);
 });
 
-test('pipeline composes filters', async () => {
-  const pipeline: Filter[] = [
+test('pipeline composes stages', async () => {
+  const pipeline: Stage[] = [
     {
       name: 'one',
       async execute(ctx) {
@@ -174,8 +174,8 @@ test('pipeline composes filters', async () => {
   assert.equal(out.markdown, 'ab');
 });
 
-test('pipeline propagates filter error', async () => {
-  const pipeline: Filter[] = [
+test('pipeline propagates stage error', async () => {
+  const pipeline: Stage[] = [
     {
       name: 'explode',
       async execute() {

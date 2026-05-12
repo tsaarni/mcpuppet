@@ -34,6 +34,7 @@ export const config = {
   searchBackend: process.env.SEARCH_BACKEND ?? 'google',
   defaultSearchLimit: envNumber('DEFAULT_SEARCH_LIMIT', 5),
   maxSearchLimit: envNumber('MAX_SEARCH_LIMIT', 10),
+  sessionDebugDir: process.env.SESSION_DEBUG_DIR ?? '',
   userDataDir: process.env.USER_DATA_DIR ?? './.browser-data',
   port: envNumber('PORT', 3000),
   host: process.env.HOST ?? '127.0.0.1',

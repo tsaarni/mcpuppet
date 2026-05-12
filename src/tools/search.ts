@@ -1,50 +1,70 @@
-// Implements the search tool: delegates to a search backend, clamps the result limit, and post-processes
-// results through sanitization and URL policy filters.
+// Implements the search tool: delegates to a search backend and returns markdown.
 import type { Page } from 'puppeteer';
+import { z } from 'zod';
 
-import { config } from '../config.ts';
-import { sanitizeSearchResultsFilter, searchResultUrlPolicyFilter, type SearchFilterState } from '../filters/search-results.ts';
-import { runPipeline } from '../pipeline.ts';
-import type { SearchBackend, SearchBackendResult } from '../search/interface.ts';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+import type { ConnectionManager } from '../connection-manager.ts';
+import { fenceExternalContent } from '../stages/content-fence.ts';
+import type { SearchBackend, SearchResult } from '../search/interface.ts';
 import { logger } from '../util/log.ts';
-
-const clampLimit = (limit: number): number => {
-  if (limit < 1) {
-    return 1;
-  }
-
-  if (limit > config.maxSearchLimit) {
-    return config.maxSearchLimit;
-  }
-
-  return limit;
-};
 
 export const runSearch = async (
   page: Page,
   query: string,
-  limit: number | undefined,
   backend: SearchBackend,
-): Promise<SearchBackendResult> => {
-  const effectiveLimit = clampLimit(limit ?? config.defaultSearchLimit);
+  sessionId?: string,
+  pageNumber?: number,
+): Promise<SearchResult> => {
   const started = Date.now();
-  logger.info({ backend: backend.name, queryLength: query.length, requestedLimit: limit, effectiveLimit }, 'Running search');
-  const raw = await backend.search(page, query, effectiveLimit);
-  const postProcessed = await runPipeline<SearchFilterState>(
-    { warnings: [...raw.warnings], searchResults: raw.results },
-    [sanitizeSearchResultsFilter, searchResultUrlPolicyFilter],
-    { name: 'search-result-post-process', logContext: { backend: backend.name, effectiveLimit } },
-  );
-  const result: SearchBackendResult = { results: postProcessed.searchResults, warnings: postProcessed.warnings, backend: backend.name };
+  logger.info({ backend: backend.name, queryLength: query.length, pageNumber }, 'Running search');
+  const raw = await backend.search(page, query, sessionId, pageNumber);
+  const result: SearchResult = { ...raw, backend: backend.name };
 
   logger.info(
-    { backend: backend.name, durationMs: Date.now() - started, rawCount: raw.results.length, returnedCount: result.results.length },
+    { backend: backend.name, durationMs: Date.now() - started, markdownLength: result.markdown.length },
     'Search completed',
   );
 
-  if (result.results.length === 0 && result.warnings.length === 0) {
-    return { ...result, warnings: ['Search returned no results.'] };
-  }
-
   return result;
+};
+
+const asStructured = (value: unknown): Record<string, unknown> => value as Record<string, unknown>;
+
+export const register = (server: McpServer, connectionManager: ConnectionManager, resolveBackend: () => SearchBackend): void => {
+  server.registerTool(
+    'search',
+    {
+      description: 'Run web search and return page content as markdown.',
+      inputSchema: z.object({
+        query: z.string().min(1),
+        page: z.number().int().positive().optional(),
+      }),
+    },
+    async ({ query, page }, extra) => {
+      const connectionId = extra.sessionId;
+      if (!connectionId) {
+        throw new Error('Session ID is required for search');
+      }
+
+      const started = Date.now();
+      logger.info({ connectionId, queryLength: query.length, page }, 'Tool search invoked');
+      const state = await connectionManager.getOrCreate(connectionId);
+      if (!state.page) {
+        throw new Error('Failed to create browser page');
+      }
+
+      const backend = resolveBackend();
+      const result = await runSearch(state.page, query, backend, connectionId, page);
+      result.markdown = fenceExternalContent(result.url, result.markdown);
+      logger.info(
+        { connectionId, durationMs: Date.now() - started, backend: result.backend, warnings: result.warnings.length },
+        'Tool search completed',
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        structuredContent: asStructured(result),
+      };
+    },
+  );
 };

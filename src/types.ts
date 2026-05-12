@@ -1,4 +1,4 @@
-// Core type definitions: FilterContext (shared state passed between filters) and the Filter/Pipeline interfaces.
+// Core type definitions: StageContext (shared state passed between stages) and the Stage/Pipeline interfaces.
 import type { Page } from 'puppeteer';
 
 export interface BaseFilterContext {
@@ -9,13 +9,14 @@ export interface BaseFilterContext {
   page?: Page;
   warnings: string[];
   redirectCount?: number;
+  sessionId?: string;
 }
 
-export type FilterContext<T extends object = {}> = BaseFilterContext & T;
+export type StageContext<T extends object = {}> = BaseFilterContext & T;
 
-export interface Filter<T extends object = {}> {
+export interface Stage<T extends object = {}> {
   name: string;
-  execute(ctx: FilterContext<T>): Promise<FilterContext<T>>;
+  execute(ctx: StageContext<T>): Promise<StageContext<T>>;
 }
 
-export type Pipeline<T extends object = {}> = Filter<T>[];
+export type Pipeline<T extends object = {}> = Stage<T>[];

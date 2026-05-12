@@ -1,6 +1,6 @@
-// Filter that wraps fetched Markdown in a nonce-tagged XML fence to signal untrusted external content to the LLM.
+// Stage that wraps fetched Markdown in a nonce-tagged XML fence to signal untrusted external content to the LLM.
 import { randomBytes } from 'node:crypto';
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 
 const xmlEscape = (value: string): string =>
   value
@@ -37,7 +37,7 @@ export const fenceExternalContent = (sourceUrl: string, content: string): string
   ].join('\n');
 };
 
-export const contentFenceFilter: Filter = {
+export const contentFenceStage: Stage = {
   name: 'content-fence',
   async execute(ctx) {
     if (!ctx.url) {

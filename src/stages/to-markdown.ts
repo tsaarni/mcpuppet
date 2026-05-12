@@ -1,7 +1,7 @@
-// Filter that converts HTML to Markdown using Turndown, with custom rules for links and image alt text.
+// Stage that converts HTML to Markdown using Turndown, with custom rules for links and image alt text.
 import TurndownService from 'turndown';
 
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
 
@@ -25,7 +25,7 @@ turndown.addRule('images-with-substantial-alt', {
   },
 });
 
-export const toMarkdownFilter: Filter = {
+export const toMarkdownStage: Stage = {
   name: 'to-markdown',
   async execute(ctx) {
     if (!ctx.html) {

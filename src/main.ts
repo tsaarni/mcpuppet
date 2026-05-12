@@ -7,95 +7,26 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { z } from 'zod';
 
 import { BrowserManager } from './browser-manager.ts';
 import { ConnectionManager } from './connection-manager.ts';
 import { config } from './config.ts';
-import { GoogleSearchBackend } from './search/google.ts';
+import { GoogleSearchBackend } from './search/google-search.ts';
 import { registerSearchBackend, resolveSearchBackend } from './search/registry.ts';
-import { fetchUrl } from './tools/fetch-url.ts';
-import { runSearch } from './tools/search.ts';
+import { register as registerFetchUrl } from './tools/fetch-url.ts';
+import { register as registerSearch } from './tools/search.ts';
 import { logger } from './util/log.ts';
 
 const browserManager = new BrowserManager();
 const connectionManager = new ConnectionManager(browserManager);
 registerSearchBackend(new GoogleSearchBackend());
 resolveSearchBackend(config.searchBackend); // fail fast if SEARCH_BACKEND is not registered
-const asStructured = (value: unknown): Record<string, unknown> =>
-  value as Record<string, unknown>;
 
 const createMcpServer = (): McpServer => {
   const server = new McpServer({ name: 'mcpuppet', version: '0.1.0' });
 
-  server.registerTool(
-    'fetch_url',
-    {
-      description: 'Navigate to URL and return extracted markdown content.',
-      inputSchema: z.object({
-        url: z.string().url(),
-        scroll: z.number().int().nonnegative().optional(),
-      }),
-    },
-    async ({ url, scroll }, extra) => {
-      const connectionId = extra.sessionId;
-      if (!connectionId) {
-        throw new Error('Session ID is required for fetch_url');
-      }
-
-      const started = Date.now();
-      logger.info({ connectionId, url, scroll: scroll ?? 0 }, 'Tool fetch_url invoked');
-      const state = await connectionManager.getOrCreate(connectionId);
-      if (!state.page) {
-        throw new Error('Failed to create browser page');
-      }
-
-      const result = await fetchUrl(state.page, url, scroll);
-      logger.info(
-        { connectionId, durationMs: Date.now() - started, warnings: result.warnings.length, hasMore: result.hasMore },
-        'Tool fetch_url completed',
-      );
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        structuredContent: asStructured(result),
-      };
-    },
-  );
-
-  server.registerTool(
-    'search',
-    {
-      description: 'Run web search and return structured results.',
-      inputSchema: z.object({
-        query: z.string().min(1),
-        limit: z.number().int().positive().optional(),
-      }),
-    },
-    async ({ query, limit }, extra) => {
-      const connectionId = extra.sessionId;
-      if (!connectionId) {
-        throw new Error('Session ID is required for search');
-      }
-
-      const started = Date.now();
-      logger.info({ connectionId, queryLength: query.length, requestedLimit: limit }, 'Tool search invoked');
-      const state = await connectionManager.getOrCreate(connectionId);
-      if (!state.page) {
-        throw new Error('Failed to create browser page');
-      }
-
-      const backend = resolveSearchBackend(config.searchBackend);
-      const result = await runSearch(state.page, query, limit, backend);
-      logger.info(
-        { connectionId, durationMs: Date.now() - started, backend: result.backend, results: result.results.length, warnings: result.warnings.length },
-        'Tool search completed',
-      );
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        structuredContent: asStructured(result),
-      };
-    },
-  );
+  registerFetchUrl(server, connectionManager);
+  registerSearch(server, connectionManager, () => resolveSearchBackend(config.searchBackend));
 
   return server;
 };

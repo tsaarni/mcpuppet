@@ -7,6 +7,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 
 import { config } from './config.ts';
+import { cookieConsentStage } from './stages/cookie-consent.ts';
 import { logger } from './util/log.ts';
 
 const puppeteerExtra = addExtra(puppeteer as unknown as Parameters<typeof addExtra>[0]);
@@ -60,6 +61,10 @@ export class BrowserManager {
       }
     }
 
+    // Warm up: visit google.com to establish cookies and session state,
+    // reducing the chance of CAPTCHA on the first actual search.
+    await this.warmUpGoogle();
+
     this.intentionalShutdown = false;
     this.browser.on('disconnected', () => {
       this.browser = null;
@@ -92,5 +97,28 @@ export class BrowserManager {
     await this.browser.close();
     this.browser = null;
     logger.info('Chromium closed');
+  }
+
+  private async warmUpGoogle(): Promise<void> {
+    if (!this.browser) {
+      return;
+    }
+
+    try {
+      logger.info('Warming up: visiting google.com to establish session');
+      const page = (await this.browser.pages())[0] ?? await this.browser.newPage();
+      await page.setViewport({ width: config.viewportWidth, height: config.viewportHeight });
+      await page.goto('https://www.google.com', { waitUntil: 'domcontentloaded', timeout: config.requestTimeoutMs });
+
+      // Dismiss cookie consent if shown, so it's persisted in userDataDir.
+      await cookieConsentStage.execute({ page, warnings: [] });
+
+      // Brief pause to let any tracking cookies settle.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await page.goto('about:blank').catch(() => {});
+      logger.info('Warm-up complete');
+    } catch (err) {
+      logger.warn({ err }, 'Warm-up visit to google.com failed (non-fatal)');
+    }
   }
 }

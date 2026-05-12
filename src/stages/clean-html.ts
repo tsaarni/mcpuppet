@@ -1,7 +1,7 @@
-// Filter that strips non-content elements (scripts, ads, nav, footers, etc.) from the HTML DOM before extraction.
+// Stage that strips non-content elements (scripts, ads, nav, footers, etc.) from the HTML DOM before extraction.
 import { parseHTML } from 'linkedom';
 
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 
 const REMOVE_SELECTORS = [
   'script',
@@ -22,7 +22,7 @@ const REMOVE_SELECTORS = [
   '[class*="promo"]',
 ];
 
-export const cleanHtmlFilter: Filter = {
+export const cleanHtmlStage: Stage = {
   name: 'clean-html',
   async execute(ctx) {
     if (!ctx.html) {

@@ -1,8 +1,8 @@
-// Filter that removes invisible and hidden DOM elements (comments, aria-hidden, zero-size, display:none, etc.)
+// Stage that removes invisible and hidden DOM elements (comments, aria-hidden, zero-size, display:none, etc.)
 // to prevent concealed content from reaching the LLM.
 import { parseHTML } from 'linkedom';
 
-import type { Filter } from '../types.ts';
+import type { Stage } from '../types.ts';
 
 const isInvisibleByStyle = (style: string): boolean => {
   const normalized = style.replace(/\s+/g, '').toLowerCase();
@@ -25,7 +25,7 @@ const isZeroDim = (el: Element): boolean => {
   return width === '0' || height === '0';
 };
 
-export const sanitizeDomFilter: Filter = {
+export const sanitizeDomStage: Stage = {
   name: 'sanitize-dom',
   async execute(ctx) {
     if (!ctx.html) {

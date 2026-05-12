@@ -7,10 +7,12 @@ Each MCP session gets a dedicated browser tab. The tab is created on first use a
 
 Content is cleaned before being returned: hidden elements and HTML comments are stripped, boilerplate is removed, Mozilla Readability extracts the main article, and the result is converted to Markdown for more effective token usage. The output is wrapped in a tagged fence so agents know it's untrusted external content.
 
+On startup, the browser visits google.com to establish cookies and dismiss consent dialogs, reducing the chance of CAPTCHAs on the first actual search.
+
 ## Tools
 
-- `fetch_url`: Navigate to a URL and return extracted Markdown content. Supports a `scroll` parameter (character offset) for paginating through long pages.
-- `search`: Run a web search and return structured results (title, snippet, URL). Uses Google by default; the backend is pluggable.
+- `fetch_url`: Navigate to a URL and return the full extracted Markdown content.
+- `search`: Run a web search and return the results page as Markdown. Accepts an optional `page` parameter (1-indexed) for navigating through result pages.
 
 ## Running
 
@@ -32,6 +34,7 @@ The server starts on `http://127.0.0.1:3000` by default. All settings are contro
 | `SEARCH_BACKEND` | `google` | Search provider |
 | `LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
 | `USER_DATA_DIR` | `./.browser-data` | Chromium profile (persists cookies across restarts) |
+| `SESSION_DEBUG_DIR` | _(empty)_ | Directory for session debug dumps (disabled when empty) |
 
 Development mode with hot reload:
 
