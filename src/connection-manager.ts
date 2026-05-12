@@ -4,11 +4,14 @@ import type { Page } from 'puppeteer';
 import { config } from './config.ts';
 import { BrowserManager } from './browser-manager.ts';
 import { logger } from './util/log.ts';
+import { Mutex } from './util/mutex.ts';
 
 export interface ConnectionState {
   page: Page | null;
   pagePromise: Promise<Page> | null;
   createdAt: Date;
+  /** Serializes concurrent page access within a single connection. */
+  mutex: Mutex;
 }
 
 export class ConnectionManager {
@@ -28,7 +31,7 @@ export class ConnectionManager {
         throw new Error(`Maximum connections reached (${config.maxConnections})`);
       }
 
-      state = { page: null, pagePromise: null, createdAt: new Date() };
+      state = { page: null, pagePromise: null, createdAt: new Date(), mutex: new Mutex() };
       this.connections.set(connectionId, state);
       logger.debug({ connectionId, currentConnections: this.connections.size }, 'Connection state created');
     }

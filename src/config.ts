@@ -25,8 +25,6 @@ const envBoolean = (name: string, fallback: boolean): boolean => {
 export const config = {
   headless: envBoolean('HEADLESS', false),
   slowMo: envNumber('SLOW_MO', 0),
-  viewportWidth: envNumber('VIEWPORT_WIDTH', 1280),
-  viewportHeight: envNumber('VIEWPORT_HEIGHT', 800),
   maxConnections: envNumber('MAX_CONNECTIONS', 10),
   requestTimeoutMs: envNumber('REQUEST_TIMEOUT_MS', 30000),
   settleDelayMs: envNumber('SETTLE_DELAY_MS', 1000),
@@ -35,6 +33,7 @@ export const config = {
   defaultSearchLimit: envNumber('DEFAULT_SEARCH_LIMIT', 5),
   maxSearchLimit: envNumber('MAX_SEARCH_LIMIT', 10),
   sessionDebugDir: process.env.SESSION_DEBUG_DIR ?? '',
+  executablePath: process.env.EXECUTABLE_PATH ?? '/usr/bin/google-chrome-stable',
   userDataDir: process.env.USER_DATA_DIR ?? './.browser-data',
   port: envNumber('PORT', 3000),
   host: process.env.HOST ?? '127.0.0.1',

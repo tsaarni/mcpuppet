@@ -17,8 +17,23 @@ export const runPipeline = async <T extends object = Record<string, never>>(
   options: RunPipelineOptions = {},
 ): Promise<StageContext<T>> => {
   const pipelineName = options.name ?? 'pipeline';
-  let current = ctx;
-  logger.debug({ pipeline: pipelineName, steps: pipeline.map((step) => step.name), ...options.logContext }, 'Starting pipeline');
+
+  // Assign a human-readable timestamp with msec precision at pipeline creation.
+  const now = new Date();
+  const timestamp =
+    ctx.timestamp ??
+    now.getFullYear().toString() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') +
+      '-' +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0') +
+      '.' +
+      now.getMilliseconds().toString().padStart(3, '0');
+  let current = { ...ctx, timestamp } as StageContext<T>;
+
+  logger.debug({ pipeline: pipelineName, timestamp, steps: pipeline.map((step) => step.name), ...options.logContext }, 'Starting pipeline');
 
   for (const stage of pipeline) {
     const started = Date.now();
@@ -44,16 +59,16 @@ export const runPipeline = async <T extends object = Record<string, never>>(
     }
   }
 
-  logger.debug({ pipeline: pipelineName, ...options.logContext }, 'Pipeline completed');
+  logger.debug({ pipeline: pipelineName, timestamp, ...options.logContext }, 'Pipeline completed');
 
   if (config.sessionDebugDir && current.sessionId) {
     const sessionDir = path.join(config.sessionDebugDir, current.sessionId);
     fs.mkdirSync(sessionDir, { recursive: true });
-    const file = path.join(sessionDir, `${Date.now()}-${pipelineName}.json`);
+    const file = path.join(sessionDir, `${timestamp}-${pipelineName}.json`);
     // Exclude the page object — it is not serializable.
     const { page: _page, ...serializable } = current as Record<string, unknown>;
     fs.writeFileSync(file, JSON.stringify(serializable, null, 2));
-    logger.debug({ pipeline: pipelineName, file }, 'Wrote pipeline debug snapshot');
+    logger.debug({ pipeline: pipelineName, timestamp, file }, 'Wrote pipeline debug snapshot');
   }
 
   return current;

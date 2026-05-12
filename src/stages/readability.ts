@@ -11,8 +11,14 @@ export const readabilityStage: Stage = {
       throw new Error('HTML and URL are required for readability');
     }
 
-    const { document } = parseHTML(ctx.html);
-    const article = new Readability(document as unknown as Document, { keepClasses: false }).parse();
+    let article: { content?: string | null; title?: string | null } | null = null;
+    try {
+      const { document } = parseHTML(ctx.html);
+      article = new Readability(document as unknown as Document, { keepClasses: false }).parse();
+    } catch {
+      ctx.warnings.push('Readability could not extract main content; using full HTML body.');
+      return ctx;
+    }
 
     if (!article?.content) {
       ctx.warnings.push('Readability could not extract main content; using full HTML body.');

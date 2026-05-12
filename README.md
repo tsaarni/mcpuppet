@@ -31,14 +31,21 @@ The server starts on `http://127.0.0.1:3000` by default. All settings are contro
 | `HEADLESS` | `false` | Run browser headless (set `true` for CI) |
 | `SLOW_MO` | `0` | ms delay per Puppeteer action (for human observation) |
 | `MAX_CONNECTIONS` | `10` | Max concurrent sessions |
+| `REQUEST_TIMEOUT_MS` | `30000` | Page request timeout in milliseconds |
+| `SETTLE_DELAY_MS` | `1000` | Delay after page load before extracting content (ms) |
+| `MAX_REDIRECTS` | `5` | Maximum number of HTTP redirects to follow |
 | `SEARCH_BACKEND` | `google` | Search provider |
+| `DEFAULT_SEARCH_LIMIT` | `5` | Default number of search results returned |
+| `MAX_SEARCH_LIMIT` | `10` | Maximum number of search results allowed |
 | `LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
+| `EXECUTABLE_PATH` | `/usr/bin/google-chrome-stable` | Path to Chrome/Chromium executable |
 | `USER_DATA_DIR` | `./.browser-data` | Chromium profile (persists cookies across restarts) |
 | `SESSION_DEBUG_DIR` | _(empty)_ | Directory for session debug dumps (disabled when empty) |
 
 Development mode with hot reload:
 
 ```bash
+npm install
 npm run dev
 ```
 
@@ -51,6 +58,19 @@ Edit `~/.kiro/settings/mcp.json` (user-wide) or `.kiro/settings/mcp.json` (works
   "mcpServers": {
     "mcpuppet": {
       "url": "http://127.0.0.1:3000/mcp"
+    }
+  }
+}
+```
+
+Alternatively, add it directly to an agent definition in `~/.kiro/agents/<agent>.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcpuppet": {
+      "url": "http://127.0.0.1:3000/mcp",
+      "disabled": false
     }
   }
 }

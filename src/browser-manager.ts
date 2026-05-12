@@ -1,20 +1,20 @@
-// Manages the shared Chromium browser instance (launch, new page, shutdown) using puppeteer-extra with the stealth plugin.
+// Manages the shared Chromium browser instance: spawns Chrome as a normal process with
+// remote debugging enabled, then connects puppeteer to it. This avoids bot detection
+// that triggers when puppeteer.launch() creates the browser with CDP deeply integrated.
+import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import puppeteer from 'puppeteer';
-import { addExtra } from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, Page } from 'puppeteer';
 
 import { config } from './config.ts';
-import { cookieConsentStage } from './stages/cookie-consent.ts';
 import { logger } from './util/log.ts';
 
-const puppeteerExtra = addExtra(puppeteer as unknown as Parameters<typeof addExtra>[0]);
-puppeteerExtra.use(StealthPlugin());
+const DEBUGGING_PORT = 9222;
 
 export class BrowserManager {
   private browser: Browser | null = null;
+  private chromeProcess: ChildProcess | null = null;
   private intentionalShutdown = false;
 
   async launch(): Promise<void> {
@@ -23,7 +23,8 @@ export class BrowserManager {
       return;
     }
 
-    logger.info({ headless: config.headless, slowMo: config.slowMo, userDataDir: config.userDataDir }, 'Launching Chromium');
+    const executablePath = config.executablePath || 'google-chrome-stable';
+    logger.info({ headless: config.headless, userDataDir: config.userDataDir, executablePath }, 'Launching Chrome');
 
     // Remove stale lock files left behind by an unclean browser shutdown.
     for (const lockFile of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
@@ -36,45 +37,38 @@ export class BrowserManager {
       }
     }
 
-    this.browser = await puppeteerExtra.launch({
-      headless: config.headless,
-      slowMo: config.slowMo,
-      userDataDir: config.userDataDir,
-      args: [
-        '--disable-session-crashed-bubble',
-        '--hide-crash-restore-bubble',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-infobars',
-      ],
-      ignoreDefaultArgs: ['--enable-automation'],
-    });
+    // Spawn Chrome as a normal process with remote debugging.
+    const args = [
+      `--remote-debugging-port=${DEBUGGING_PORT}`,
+      `--user-data-dir=${path.resolve(config.userDataDir)}`,
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-infobars',
+      '--disable-session-crashed-bubble',
+      '--hide-crash-restore-bubble',
+      '--lang=en-US',
+      ...(config.headless ? ['--headless=new'] : []),
+      'about:blank',
+    ];
 
-    // Close any tabs restored from the previous session, keeping only one blank page.
-    const existingPages = await this.browser.pages();
-    if (existingPages.length > 1) {
-      logger.debug({ restoredTabs: existingPages.length }, 'Closing restored tabs from previous session');
-      for (const p of existingPages.slice(1)) {
-        await p.close().catch(() => {});
-      }
-    }
-
-    // Warm up: visit google.com to establish cookies and session state,
-    // reducing the chance of CAPTCHA on the first actual search.
-    await this.warmUpGoogle();
-
-    this.intentionalShutdown = false;
-    this.browser.on('disconnected', () => {
+    this.chromeProcess = spawn(executablePath, args, { stdio: 'ignore' });
+    this.chromeProcess.on('exit', () => {
+      this.chromeProcess = null;
       this.browser = null;
       if (!this.intentionalShutdown) {
-        logger.info('Browser was closed by user, restarting...');
+        logger.info('Chrome process exited unexpectedly, restarting...');
         this.launch().catch((err) => logger.error({ err }, 'Failed to restart browser'));
       }
     });
 
-    logger.info('Chromium launched');
+    // Wait for Chrome's debugging port to become available.
+    await this.waitForDebugPort();
+
+    // Connect puppeteer to the running Chrome instance.
+    this.browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${DEBUGGING_PORT}` });
+
+    this.intentionalShutdown = false;
+    logger.info('Connected to Chrome via remote debugging');
   }
 
   async getPage(): Promise<Page> {
@@ -83,42 +77,38 @@ export class BrowserManager {
     }
 
     const page = await this.browser.newPage();
-    await page.setViewport({ width: config.viewportWidth, height: config.viewportHeight });
-    logger.debug({ viewportWidth: config.viewportWidth, viewportHeight: config.viewportHeight }, 'Browser page created');
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+    logger.debug('Browser page created');
     return page;
   }
 
   async shutdown(): Promise<void> {
-    if (!this.browser) {
-      return;
+    this.intentionalShutdown = true;
+
+    if (this.browser) {
+      this.browser.disconnect();
+      this.browser = null;
     }
 
-    this.intentionalShutdown = true;
-    await this.browser.close();
-    this.browser = null;
-    logger.info('Chromium closed');
+    if (this.chromeProcess) {
+      this.chromeProcess.kill();
+      this.chromeProcess = null;
+    }
+
+    logger.info('Chrome closed');
   }
 
-  private async warmUpGoogle(): Promise<void> {
-    if (!this.browser) {
-      return;
+  private async waitForDebugPort(): Promise<void> {
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      try {
+        const resp = await fetch(`http://127.0.0.1:${DEBUGGING_PORT}/json/version`);
+        if (resp.ok) return;
+      } catch {
+        // Not ready yet.
+      }
+      await new Promise((r) => setTimeout(r, 100));
     }
-
-    try {
-      logger.info('Warming up: visiting google.com to establish session');
-      const page = (await this.browser.pages())[0] ?? await this.browser.newPage();
-      await page.setViewport({ width: config.viewportWidth, height: config.viewportHeight });
-      await page.goto('https://www.google.com', { waitUntil: 'domcontentloaded', timeout: config.requestTimeoutMs });
-
-      // Dismiss cookie consent if shown, so it's persisted in userDataDir.
-      await cookieConsentStage.execute({ page, warnings: [] });
-
-      // Brief pause to let any tracking cookies settle.
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await page.goto('about:blank').catch(() => {});
-      logger.info('Warm-up complete');
-    } catch (err) {
-      logger.warn({ err }, 'Warm-up visit to google.com failed (non-fatal)');
-    }
+    throw new Error('Chrome debugging port did not become available within 10s');
   }
 }

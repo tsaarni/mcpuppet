@@ -38,6 +38,12 @@ type SessionContext = {
 
 const sessions = new Map<string, SessionContext>();
 
+// Tracks session IDs that were recently closed to prevent infinite recovery loops.
+// When a stale client keeps retrying with the same session ID, without this guard
+// the server would recover → close → recover → close in a tight loop until OOM.
+const recentlyClosedSessions = new Set<string>();
+const CLOSED_SESSION_TTL_MS = 5000;
+
 const app = new Hono();
 
 app.all('/mcp', async (c) => {
@@ -59,6 +65,14 @@ app.all('/mcp', async (c) => {
     if (sessionId) {
       const existing = sessions.get(sessionId);
       if (!existing) {
+        if (recentlyClosedSessions.has(sessionId)) {
+          logger.debug({ sessionId }, 'Rejecting recovery of recently-closed session');
+          return c.json(
+            { jsonrpc: '2.0', error: { code: -32600, message: 'Session expired, please reinitialize' }, id: null },
+            400,
+          );
+        }
+
         logger.warn({ sessionId }, 'Unknown session (server may have restarted), recovering session transparently');
 
         const server = createMcpServer();
@@ -68,6 +82,8 @@ app.all('/mcp', async (c) => {
 
         transport.onclose = () => {
           sessions.delete(sessionId);
+          recentlyClosedSessions.add(sessionId);
+          setTimeout(() => recentlyClosedSessions.delete(sessionId), CLOSED_SESSION_TTL_MS);
           void connectionManager.onDisconnect(sessionId);
           logger.info({ sessionId, sessions: sessions.size }, 'Recovered MCP session closed');
           void server.close();
@@ -111,6 +127,8 @@ app.all('/mcp', async (c) => {
       const closedSessionId = transport.sessionId;
       if (closedSessionId) {
         sessions.delete(closedSessionId);
+        recentlyClosedSessions.add(closedSessionId);
+        setTimeout(() => recentlyClosedSessions.delete(closedSessionId), CLOSED_SESSION_TTL_MS);
         void connectionManager.onDisconnect(closedSessionId);
         logger.info({ sessionId: closedSessionId, sessions: sessions.size }, 'MCP session closed');
       }

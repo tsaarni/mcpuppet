@@ -151,15 +151,20 @@ export const register = (server: McpServer, connectionManager: ConnectionManager
         throw new Error('Failed to create browser page');
       }
 
-      const result = await fetchUrl(state.page, url, connectionId);
-      logger.info(
-        { connectionId, durationMs: Date.now() - started, warnings: result.warnings.length },
-        'Tool fetch_url completed',
-      );
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        structuredContent: asStructured(result),
-      };
+      const release = await state.mutex.acquire();
+      try {
+        const result = await fetchUrl(state.page, url, connectionId);
+        logger.info(
+          { connectionId, durationMs: Date.now() - started, warnings: result.warnings.length },
+          'Tool fetch_url completed',
+        );
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          structuredContent: asStructured(result),
+        };
+      } finally {
+        release();
+      }
     },
   );
 };

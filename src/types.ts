@@ -10,6 +10,8 @@ export interface BaseFilterContext {
   warnings: string[];
   redirectCount?: number;
   sessionId?: string;
+  /** Human-readable timestamp (msec precision) assigned at pipeline creation. */
+  timestamp?: string;
 }
 
 export type StageContext<T extends object = {}> = BaseFilterContext & T;

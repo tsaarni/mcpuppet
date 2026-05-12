@@ -54,17 +54,22 @@ export const register = (server: McpServer, connectionManager: ConnectionManager
         throw new Error('Failed to create browser page');
       }
 
-      const backend = resolveBackend();
-      const result = await runSearch(state.page, query, backend, connectionId, page);
-      result.markdown = fenceExternalContent(result.url, result.markdown);
-      logger.info(
-        { connectionId, durationMs: Date.now() - started, backend: result.backend, warnings: result.warnings.length },
-        'Tool search completed',
-      );
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        structuredContent: asStructured(result),
-      };
+      const release = await state.mutex.acquire();
+      try {
+        const backend = resolveBackend();
+        const result = await runSearch(state.page, query, backend, connectionId, page);
+        result.markdown = fenceExternalContent(result.url, result.markdown);
+        logger.info(
+          { connectionId, durationMs: Date.now() - started, backend: result.backend, warnings: result.warnings.length },
+          'Tool search completed',
+        );
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          structuredContent: asStructured(result),
+        };
+      } finally {
+        release();
+      }
     },
   );
 };
