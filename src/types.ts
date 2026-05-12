@@ -4,6 +4,8 @@ import type { Page } from 'puppeteer';
 export interface BaseFilterContext {
   url?: string;
   html?: string;
+  /** Pre-parsed DOM document, passed between stages to avoid redundant parsing. */
+  document?: unknown;
   markdown?: string;
   title?: string;
   page?: Page;
@@ -12,6 +14,8 @@ export interface BaseFilterContext {
   sessionId?: string;
   /** Human-readable timestamp (msec precision) assigned at pipeline creation. */
   timestamp?: string;
+  /** Deferred cleanup functions to run after the pipeline completes (e.g., disabling request interception). */
+  cleanups?: (() => Promise<void>)[];
 }
 
 export type StageContext<T extends object = {}> = BaseFilterContext & T;

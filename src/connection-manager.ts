@@ -4,14 +4,16 @@ import type { Page } from 'puppeteer';
 import { config } from './config.ts';
 import { BrowserManager } from './browser-manager.ts';
 import { logger } from './util/log.ts';
-import { Mutex } from './util/mutex.ts';
+import { Mutex, withTimeout, type MutexInterface } from 'async-mutex';
 
 export interface ConnectionState {
   page: Page | null;
   pagePromise: Promise<Page> | null;
   createdAt: Date;
   /** Serializes concurrent page access within a single connection. */
-  mutex: Mutex;
+  mutex: MutexInterface;
+  /** Set when the browser disconnects; the page reference is dead. */
+  invalidated: boolean;
 }
 
 export class ConnectionManager {
@@ -20,6 +22,16 @@ export class ConnectionManager {
 
   constructor(browserManager: BrowserManager) {
     this.browserManager = browserManager;
+    this.browserManager.onBrowserDisconnect(() => this.invalidateAll());
+  }
+
+  /** Mark all connection states as invalidated (browser crashed). */
+  private invalidateAll(): void {
+    for (const state of this.connections.values()) {
+      state.page = null;
+      state.invalidated = true;
+    }
+    logger.info({ connections: this.connections.size }, 'All connections invalidated due to browser disconnect');
   }
 
   async getOrCreate(connectionId: string): Promise<ConnectionState> {
@@ -31,9 +43,14 @@ export class ConnectionManager {
         throw new Error(`Maximum connections reached (${config.maxConnections})`);
       }
 
-      state = { page: null, pagePromise: null, createdAt: new Date(), mutex: new Mutex() };
+      state = { page: null, pagePromise: null, createdAt: new Date(), mutex: withTimeout(new Mutex(), config.requestTimeoutMs), invalidated: false };
       this.connections.set(connectionId, state);
       logger.debug({ connectionId, currentConnections: this.connections.size }, 'Connection state created');
+    }
+
+    if (state.invalidated) {
+      state.invalidated = false;
+      throw new Error('Browser restarted, please retry');
     }
 
     if (!state.page) {

@@ -1,4 +1,6 @@
 // URL safety policy: blocks private/loopback/internal IP ranges and non-HTTP(S) schemes to prevent SSRF attacks.
+import dns from 'node:dns/promises';
+
 import type { Stage } from '../types.ts';
 
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::', '::1']);
@@ -93,6 +95,40 @@ export const validateUrlPolicy = (rawUrl: string): URL => {
   return parsed;
 };
 
+/**
+ * Resolves the hostname via DNS and validates all resolved IPs against private/reserved ranges.
+ * This prevents DNS rebinding attacks where a hostname passes string-based checks but resolves to a private IP.
+ * Should be called after validateUrlPolicy() and before navigation.
+ */
+export async function resolveAndValidateDns(parsed: URL): Promise<void> {
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  // If the host is already an IP literal, skip DNS resolution (already validated by validateUrlPolicy).
+  if (BLOCKED_HOSTS.has(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':')) {
+    return;
+  }
+
+  let addresses: { address: string; family: number }[];
+  try {
+    addresses = await dns.lookup(host, { all: true });
+  } catch {
+    throw new Error(`DNS resolution failed for host: ${host}`);
+  }
+
+  for (const { address } of addresses) {
+    if (isBlockedIPv4(address)) {
+      throw new Error(`DNS resolved to blocked IP: ${host} → ${address}`);
+    }
+    if (BLOCKED_IPV6_PREFIXES.some((prefix) => address.toLowerCase().startsWith(prefix))) {
+      throw new Error(`DNS resolved to blocked IPv6 address: ${host} → ${address}`);
+    }
+    const embedded = extractIPv4Compatible(address);
+    if (embedded !== null && isBlockedIPv4(embedded)) {
+      throw new Error(`DNS resolved to blocked IPv4-compatible IPv6: ${host} → ${address}`);
+    }
+  }
+}
+
 export const urlPolicyStage: Stage = {
   name: 'url-policy',
   async execute(ctx) {
@@ -101,6 +137,7 @@ export const urlPolicyStage: Stage = {
     }
 
     const parsed = validateUrlPolicy(ctx.url);
+    await resolveAndValidateDns(parsed);
     return { ...ctx, url: parsed.toString() };
   },
 };

@@ -2,12 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { runPipeline } from '../src/pipeline.ts';
-import { cleanHtmlStage } from '../src/stages/clean-html.ts';
 import { contentFenceStage } from '../src/stages/content-fence.ts';
 import { redirectGuardStage } from '../src/stages/redirect-guard.ts';
-import { sanitizeDomStage } from '../src/stages/sanitize-dom.ts';
+import { sanitizeAndCleanStage } from '../src/stages/sanitize-and-clean.ts';
 import { validateUrlPolicy, extractIPv4Compatible } from '../src/stages/url-policy.ts';
-import { shouldEnforcePolicy } from '../src/tools/fetch-url.ts';
+import { shouldEnforcePolicy } from '../src/stages/navigate.ts';
 import { config } from '../src/config.ts';
 import type { Stage } from '../src/types.ts';
 
@@ -111,26 +110,6 @@ test('redirect-guard rejects redirect to private IP', async () => {
   );
 });
 
-test('sanitize-dom strips comments and aria-hidden', async () => {
-  const input = '<html><body><!--secret--><p aria-hidden="true">x</p><p>ok</p></body></html>';
-  const out = await sanitizeDomStage.execute({ html: input, warnings: [] });
-
-  assert.match(out.html ?? '', /ok/);
-  assert.doesNotMatch(out.html ?? '', /secret/);
-  assert.doesNotMatch(out.html ?? '', /aria-hidden/);
-});
-
-test('clean-html strips nav/header/footer/script', async () => {
-  const input = '<html><body><header>x</header><nav>n</nav><main>ok</main><footer>f</footer><script>bad()</script></body></html>';
-  const out = await cleanHtmlStage.execute({ html: input, warnings: [] });
-
-  assert.match(out.html ?? '', /ok/);
-  assert.doesNotMatch(out.html ?? '', /<header/);
-  assert.doesNotMatch(out.html ?? '', /<nav/);
-  assert.doesNotMatch(out.html ?? '', /<footer/);
-  assert.doesNotMatch(out.html ?? '', /<script/);
-});
-
 test('content-fence wraps markdown correctly', async () => {
   const out = await contentFenceStage.execute({
     url: 'https://example.com',
@@ -185,4 +164,17 @@ test('pipeline propagates stage error', async () => {
   ];
 
   await assert.rejects(() => runPipeline({ warnings: [] }, pipeline), /pipeline-failure/);
+});
+
+test('sanitize-and-clean combines both passes and provides document', async () => {
+  const input = '<html><body><!--secret--><p aria-hidden="true">hidden</p><header>hdr</header><nav>n</nav><main>ok</main><script>bad()</script></body></html>';
+  const out = await sanitizeAndCleanStage.execute({ html: input, warnings: [] });
+
+  assert.match(out.html ?? '', /ok/);
+  assert.doesNotMatch(out.html ?? '', /secret/);
+  assert.doesNotMatch(out.html ?? '', /aria-hidden/);
+  assert.doesNotMatch(out.html ?? '', /<header/);
+  assert.doesNotMatch(out.html ?? '', /<nav/);
+  assert.doesNotMatch(out.html ?? '', /<script/);
+  assert.ok(out.document, 'document should be set on context');
 });

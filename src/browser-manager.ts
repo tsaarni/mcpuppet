@@ -1,21 +1,34 @@
-// Manages the shared Chromium browser instance: spawns Chrome as a normal process with
-// remote debugging enabled, then connects puppeteer to it. This avoids bot detection
-// that triggers when puppeteer.launch() creates the browser with CDP deeply integrated.
-import { spawn, type ChildProcess } from 'node:child_process';
+// Manages the shared Chromium browser instance launched via puppeteer.launch().
+// Bot detection is avoided by stripping the automation flags that puppeteer injects
+// by default (--enable-automation, --disable-extensions, etc.) and adding
+// --disable-blink-features=AutomationControlled to suppress navigator.webdriver.
 import fs from 'node:fs';
 import path from 'node:path';
+
 import puppeteer from 'puppeteer';
 import type { Browser, Page } from 'puppeteer';
 
 import { config } from './config.ts';
 import { logger } from './util/log.ts';
 
-const DEBUGGING_PORT = 9222;
+// Puppeteer default args that expose the browser as an automation tool and
+// are detectable by bot-detection systems.
+const IGNORED_DEFAULT_ARGS = [
+  '--enable-automation',
+  '--disable-extensions',
+  '--disable-default-apps',
+  '--disable-component-extensions-with-background-pages',
+];
 
 export class BrowserManager {
   private browser: Browser | null = null;
-  private chromeProcess: ChildProcess | null = null;
   private intentionalShutdown = false;
+  private disconnectListeners: Array<() => void> = [];
+
+  /** Register a listener called on unexpected browser disconnect (before relaunch). */
+  onBrowserDisconnect(listener: () => void): void {
+    this.disconnectListeners.push(listener);
+  }
 
   async launch(): Promise<void> {
     if (this.browser) {
@@ -23,52 +36,49 @@ export class BrowserManager {
       return;
     }
 
-    const executablePath = config.executablePath || 'google-chrome-stable';
+    const executablePath = config.executablePath || undefined;
     logger.info({ headless: config.headless, userDataDir: config.userDataDir, executablePath }, 'Launching Chrome');
 
-    // Remove stale lock files left behind by an unclean browser shutdown.
-    for (const lockFile of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
-      const lockPath = path.join(config.userDataDir, lockFile);
-      try {
-        fs.unlinkSync(lockPath);
-        logger.debug({ lockFile }, 'Removed stale browser lock file');
-      } catch {
-        // File doesn't exist — nothing to clean up.
-      }
+    // Remove lock files left by a previous unclean shutdown so Chrome doesn't
+    // refuse to start or attach to a stale instance.
+    for (const file of fs.readdirSync(config.userDataDir).filter(f => f.startsWith('Singleton'))) {
+      try { fs.unlinkSync(path.join(config.userDataDir, file)); } catch {}
     }
 
-    // Spawn Chrome as a normal process with remote debugging.
-    const args = [
-      `--remote-debugging-port=${DEBUGGING_PORT}`,
-      `--user-data-dir=${path.resolve(config.userDataDir)}`,
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-infobars',
-      '--disable-session-crashed-bubble',
-      '--hide-crash-restore-bubble',
-      '--lang=en-US',
-      ...(config.headless ? ['--headless=new'] : []),
-      'about:blank',
-    ];
+    // Remove session restore data so Chrome doesn't reopen tabs from a
+    // previous session (happens when Chrome was killed without graceful shutdown).
+    const sessionsDir = path.join(config.userDataDir, 'Default', 'Sessions');
+    try { fs.rmSync(sessionsDir, { recursive: true }); } catch {}
 
-    this.chromeProcess = spawn(executablePath, args, { stdio: 'ignore' });
-    this.chromeProcess.on('exit', () => {
-      this.chromeProcess = null;
+    this.browser = await puppeteer.launch({
+      headless: config.headless,
+      executablePath,
+      userDataDir: config.userDataDir,
+      defaultViewport: null,
+      ignoreDefaultArgs: IGNORED_DEFAULT_ARGS,
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-default-browser-check',
+        '--noerrdialogs',
+        '--disable-infobars',
+        '--disable-session-crashed-bubble',
+        '--hide-crash-restore-bubble',
+        '--lang=en-US',
+      ],
+    });
+
+    this.intentionalShutdown = false;
+
+    this.browser.on('disconnected', () => {
       this.browser = null;
       if (!this.intentionalShutdown) {
-        logger.info('Chrome process exited unexpectedly, restarting...');
+        logger.info('Chrome disconnected unexpectedly, restarting...');
+        for (const listener of this.disconnectListeners) listener();
         this.launch().catch((err) => logger.error({ err }, 'Failed to restart browser'));
       }
     });
 
-    // Wait for Chrome's debugging port to become available.
-    await this.waitForDebugPort();
-
-    // Connect puppeteer to the running Chrome instance.
-    this.browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${DEBUGGING_PORT}` });
-
-    this.intentionalShutdown = false;
-    logger.info('Connected to Chrome via remote debugging');
+    logger.info('Chrome launched');
   }
 
   async getPage(): Promise<Page> {
@@ -86,29 +96,10 @@ export class BrowserManager {
     this.intentionalShutdown = true;
 
     if (this.browser) {
-      this.browser.disconnect();
+      await this.browser.close();
       this.browser = null;
     }
 
-    if (this.chromeProcess) {
-      this.chromeProcess.kill();
-      this.chromeProcess = null;
-    }
-
     logger.info('Chrome closed');
-  }
-
-  private async waitForDebugPort(): Promise<void> {
-    const deadline = Date.now() + 10000;
-    while (Date.now() < deadline) {
-      try {
-        const resp = await fetch(`http://127.0.0.1:${DEBUGGING_PORT}/json/version`);
-        if (resp.ok) return;
-      } catch {
-        // Not ready yet.
-      }
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    throw new Error('Chrome debugging port did not become available within 10s');
   }
 }

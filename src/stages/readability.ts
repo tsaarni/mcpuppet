@@ -13,8 +13,8 @@ export const readabilityStage: Stage = {
 
     let article: { content?: string | null; title?: string | null } | null = null;
     try {
-      const { document } = parseHTML(ctx.html);
-      article = new Readability(document as unknown as Document, { keepClasses: false }).parse();
+      const doc = ctx.document ?? parseHTML(ctx.html).document;
+      article = new Readability(doc as unknown as Document, { keepClasses: false }).parse();
     } catch {
       ctx.warnings.push('Readability could not extract main content; using full HTML body.');
       return ctx;
@@ -29,6 +29,7 @@ export const readabilityStage: Stage = {
       ...ctx,
       html: article.content,
       title: article.title ?? ctx.title,
+      document: undefined,
     };
   },
 };

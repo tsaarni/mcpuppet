@@ -9,6 +9,8 @@ class MockBrowserManager {
   pagesCreated = 0;
   pagesClosed = 0;
 
+  onBrowserDisconnect(_listener: () => void) {}
+
   async getPage() {
     this.pagesCreated++;
     return { close: async () => { this.pagesClosed++; } };
@@ -90,6 +92,7 @@ test('ConnectionManager closes page when disconnect arrives during in-flight pag
   const bm = {
     pagesCreated: 0,
     pagesClosed: 0,
+    onBrowserDisconnect(_listener: () => void) {},
     getPage: async () => {
       bm.pagesCreated++;
       return new Promise<{ close: () => Promise<void> }>((resolve) => {

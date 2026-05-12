@@ -44,6 +44,11 @@ const sessions = new Map<string, SessionContext>();
 const recentlyClosedSessions = new Set<string>();
 const CLOSED_SESSION_TTL_MS = 5000;
 
+// Guards against re-entrant onclose calls. server.close() triggers transport.close()
+// which fires onclose again, causing infinite recursion without this guard.
+const closingSessions = new Set<string>();
+const CLOSING_SESSION_TIMEOUT_MS = 30_000;
+
 const app = new Hono();
 
 app.all('/mcp', async (c) => {
@@ -81,12 +86,28 @@ app.all('/mcp', async (c) => {
         });
 
         transport.onclose = () => {
+          if (closingSessions.has(sessionId)) return;
+          closingSessions.add(sessionId);
           sessions.delete(sessionId);
           recentlyClosedSessions.add(sessionId);
           setTimeout(() => recentlyClosedSessions.delete(sessionId), CLOSED_SESSION_TTL_MS);
-          void connectionManager.onDisconnect(sessionId);
+          connectionManager.onDisconnect(sessionId).catch((err) => {
+            logger.error(
+              { sessionId, errorMessage: err instanceof Error ? err.message : String(err) },
+              'Error disconnecting recovered session',
+            );
+          });
           logger.info({ sessionId, sessions: sessions.size }, 'Recovered MCP session closed');
-          void server.close();
+          const closeTimeout = setTimeout(() => {
+            logger.warn({ sessionId }, 'server.close() timed out, releasing closingSessions guard');
+            closingSessions.delete(sessionId);
+          }, CLOSING_SESSION_TIMEOUT_MS);
+          server.close().catch((err) => {
+            logger.error(
+              { sessionId, errorMessage: err instanceof Error ? err.message : String(err) },
+              'Error closing recovered MCP server',
+            );
+          }).finally(() => { clearTimeout(closeTimeout); closingSessions.delete(sessionId); });
         };
 
         await server.connect(transport);
@@ -126,13 +147,29 @@ app.all('/mcp', async (c) => {
     transport.onclose = () => {
       const closedSessionId = transport.sessionId;
       if (closedSessionId) {
+        if (closingSessions.has(closedSessionId)) return;
+        closingSessions.add(closedSessionId);
         sessions.delete(closedSessionId);
         recentlyClosedSessions.add(closedSessionId);
         setTimeout(() => recentlyClosedSessions.delete(closedSessionId), CLOSED_SESSION_TTL_MS);
-        void connectionManager.onDisconnect(closedSessionId);
+        connectionManager.onDisconnect(closedSessionId).catch((err) => {
+          logger.error(
+            { sessionId: closedSessionId, errorMessage: err instanceof Error ? err.message : String(err) },
+            'Error disconnecting session',
+          );
+        });
         logger.info({ sessionId: closedSessionId, sessions: sessions.size }, 'MCP session closed');
       }
-      void server.close();
+      const closeTimeout = setTimeout(() => {
+        logger.warn({ sessionId: closedSessionId }, 'server.close() timed out, releasing closingSessions guard');
+        if (closedSessionId) closingSessions.delete(closedSessionId);
+      }, CLOSING_SESSION_TIMEOUT_MS);
+      server.close().catch((err) => {
+        logger.error(
+          { errorMessage: err instanceof Error ? err.message : String(err) },
+          'Error closing MCP server',
+        );
+      }).finally(() => { clearTimeout(closeTimeout); if (closedSessionId) closingSessions.delete(closedSessionId); });
     };
 
     await server.connect(transport);

@@ -1,5 +1,5 @@
-// Stage that removes invisible and hidden DOM elements (comments, aria-hidden, zero-size, display:none, etc.)
-// to prevent concealed content from reaching the LLM.
+// Parses HTML once, strips hidden/invisible elements (sanitize) and
+// boilerplate selectors (clean), then passes the live document on the context.
 import { parseHTML } from 'linkedom';
 
 import type { Stage } from '../types.ts';
@@ -25,8 +25,27 @@ const isZeroDim = (el: Element): boolean => {
   return width === '0' || height === '0';
 };
 
-export const sanitizeDomStage: Stage = {
-  name: 'sanitize-dom',
+const REMOVE_SELECTORS = [
+  'script',
+  'style',
+  'noscript',
+  'nav',
+  'header',
+  'footer',
+  'aside',
+  'iframe',
+  'form',
+  '[class*="sponsor"]',
+  '[class*="social"]',
+  '[class*="newsletter"]',
+  '[id*="newsletter"]',
+  '[class*="promo"]',
+];
+
+const AD_PATTERN = /(?:^|[\s_-])ad(?:[\s_-]|$)/i;
+
+export const sanitizeAndCleanStage: Stage = {
+  name: 'sanitize-and-clean',
   async execute(ctx) {
     if (!ctx.html) {
       throw new Error('HTML is required');
@@ -34,6 +53,7 @@ export const sanitizeDomStage: Stage = {
 
     const { document } = parseHTML(ctx.html);
 
+    // --- Sanitize: remove comments ---
     const walker = document.createTreeWalker(document, 128);
     const comments: Comment[] = [];
     let current = walker.nextNode() as Comment | null;
@@ -45,8 +65,8 @@ export const sanitizeDomStage: Stage = {
       comment.remove();
     }
 
-    const allElements = Array.from(document.querySelectorAll('*'));
-    for (const element of allElements) {
+    // --- Sanitize: remove hidden/invisible elements ---
+    for (const element of Array.from(document.querySelectorAll('*'))) {
       const style = element.getAttribute('style') ?? '';
       const ariaHidden = element.getAttribute('aria-hidden');
       const hidden = element.getAttribute('hidden');
@@ -56,6 +76,23 @@ export const sanitizeDomStage: Stage = {
       }
     }
 
-    return { ...ctx, html: document.toString() };
+    // --- Clean: remove boilerplate selectors ---
+    for (const selector of REMOVE_SELECTORS) {
+      for (const element of Array.from(document.querySelectorAll(selector))) {
+        element.remove();
+      }
+    }
+
+    // --- Clean: remove ad elements ---
+    for (const element of Array.from(document.querySelectorAll('*'))) {
+      if (element.matches('html, body, main, article')) continue;
+      const cls = element.getAttribute('class') ?? '';
+      const id = element.getAttribute('id') ?? '';
+      if (AD_PATTERN.test(cls) || AD_PATTERN.test(id)) {
+        element.remove();
+      }
+    }
+
+    return { ...ctx, html: document.toString(), document };
   },
 };
