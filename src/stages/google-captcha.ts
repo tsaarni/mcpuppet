@@ -5,8 +5,8 @@ import { config } from '../config.ts';
 import type { Stage, StageContext } from '../types.ts';
 import { logger } from '../util/log.ts';
 
-const isCaptchaPage = async (ctx: StageContext): Promise<boolean> =>
-  ctx.page!.evaluate(() => {
+async function isCaptchaPage(ctx: StageContext): Promise<boolean> {
+  return ctx.page!.evaluate(() => {
     const body = document.body?.textContent ?? '';
     return (
       body.includes('unusual traffic') ||
@@ -14,6 +14,7 @@ const isCaptchaPage = async (ctx: StageContext): Promise<boolean> =>
       !!document.querySelector('#captcha-form, #recaptcha, form[action*="sorry"]')
     );
   });
+}
 
 export const googleCaptchaStage: Stage = {
   name: 'google-captcha',

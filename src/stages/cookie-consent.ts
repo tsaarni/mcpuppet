@@ -138,7 +138,7 @@ export const cookieConsentStage: Stage = {
       // Wait for the banner to disappear
       await new Promise((resolve) => setTimeout(resolve, 500));
       // Refresh HTML since DOM may have changed
-      ctx.html = await ctx.page.content();
+      return { ...ctx, html: await ctx.page.content() };
     }
 
     return ctx;

@@ -4,12 +4,12 @@ import { logger } from '../util/log.ts';
 
 const registry = new Map<string, SearchBackend>();
 
-export const registerSearchBackend = (backend: SearchBackend): void => {
+export function registerSearchBackend(backend: SearchBackend): void {
   registry.set(backend.name, backend);
   logger.info({ backend: backend.name, registeredCount: registry.size }, 'Registered search backend');
-};
+}
 
-export const resolveSearchBackend = (name: string): SearchBackend => {
+export function resolveSearchBackend(name: string): SearchBackend {
   const backend = registry.get(name);
   if (!backend) {
     logger.warn({ backend: name, registeredBackends: Array.from(registry.keys()) }, 'Unknown search backend requested');
@@ -17,9 +17,9 @@ export const resolveSearchBackend = (name: string): SearchBackend => {
   }
   logger.debug({ backend: name }, 'Resolved search backend');
   return backend;
-};
+}
 
-export const clearSearchBackends = (): void => {
+export function clearSearchBackends(): void {
   registry.clear();
   logger.debug('Cleared search backend registry');
-};
+}

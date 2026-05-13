@@ -4,18 +4,18 @@ import assert from 'node:assert/strict';
 import { runPipeline } from '../src/pipeline.ts';
 import type { Stage } from '../src/types.ts';
 
-test('runPipeline executes stages in order', async () => {
+void test('runPipeline executes stages in order', async () => {
   const pipeline: Stage[] = [
     {
       name: 'first',
-      async execute(ctx) {
-        return { ...ctx, markdown: 'hello' };
+      execute(ctx) {
+        return Promise.resolve({ ...ctx, markdown: 'hello' });
       },
     },
     {
       name: 'second',
-      async execute(ctx) {
-        return { ...ctx, markdown: `${ctx.markdown} world` };
+      execute(ctx) {
+        return Promise.resolve({ ...ctx, markdown: `${ctx.markdown} world` });
       },
     },
   ];
@@ -25,11 +25,11 @@ test('runPipeline executes stages in order', async () => {
   assert.equal(result.markdown, 'hello world');
 });
 
-test('runPipeline propagates errors', async () => {
+void test('runPipeline propagates errors', async () => {
   const pipeline: Stage[] = [
     {
       name: 'boom',
-      async execute() {
+      execute(): never {
         throw new Error('failed');
       },
     },

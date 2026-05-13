@@ -22,19 +22,19 @@ const connectionManager = new ConnectionManager(browserManager);
 registerSearchBackend(new GoogleSearchBackend());
 resolveSearchBackend(config.searchBackend); // fail fast if SEARCH_BACKEND is not registered
 
-const createMcpServer = (): McpServer => {
+function createMcpServer(): McpServer {
   const server = new McpServer({ name: 'mcpuppet', version: '0.1.0' });
 
   registerFetchUrl(server, connectionManager);
   registerSearch(server, connectionManager, () => resolveSearchBackend(config.searchBackend));
 
   return server;
-};
+}
 
-type SessionContext = {
+interface SessionContext {
   server: McpServer;
   transport: StreamableHTTPServerTransport;
-};
+}
 
 const sessions = new Map<string, SessionContext>();
 
@@ -43,6 +43,15 @@ const sessions = new Map<string, SessionContext>();
 // the server would recover → close → recover → close in a tight loop until OOM.
 const recentlyClosedSessions = new Set<string>();
 const CLOSED_SESSION_TTL_MS = 5000;
+const RECENTLY_CLOSED_SESSION_LIMIT = 1000;
+
+function markSessionClosed(sessionId: string): void {
+  if (recentlyClosedSessions.size >= RECENTLY_CLOSED_SESSION_LIMIT) {
+    recentlyClosedSessions.delete(recentlyClosedSessions.values().next().value!);
+  }
+  recentlyClosedSessions.add(sessionId);
+  setTimeout(() => recentlyClosedSessions.delete(sessionId), CLOSED_SESSION_TTL_MS);
+}
 
 // Guards against re-entrant onclose calls. server.close() triggers transport.close()
 // which fires onclose again, causing infinite recursion without this guard.
@@ -50,6 +59,16 @@ const closingSessions = new Set<string>();
 const CLOSING_SESSION_TIMEOUT_MS = 30_000;
 
 const app = new Hono();
+
+app.use('*', async (c, next) => {
+  if (config.authToken) {
+    const auth = c.req.header('Authorization');
+    if (auth !== `Bearer ${config.authToken}`) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+  }
+  await next();
+});
 
 app.all('/mcp', async (c) => {
   const req = (c.env as { incoming: IncomingMessage }).incoming;
@@ -59,8 +78,8 @@ app.all('/mcp', async (c) => {
   // After MCP SDK writes directly to res, Hono must not try to write again.
   const sealResponse = () => {
     if (res.headersSent) {
-      res.writeHead = (() => res) as typeof res.writeHead;
-      res.end = (() => res) as typeof res.end;
+      res.writeHead = () => res;
+      res.end = () => res;
     }
   };
 
@@ -89,8 +108,7 @@ app.all('/mcp', async (c) => {
           if (closingSessions.has(sessionId)) return;
           closingSessions.add(sessionId);
           sessions.delete(sessionId);
-          recentlyClosedSessions.add(sessionId);
-          setTimeout(() => recentlyClosedSessions.delete(sessionId), CLOSED_SESSION_TTL_MS);
+          markSessionClosed(sessionId);
           connectionManager.onDisconnect(sessionId).catch((err) => {
             logger.error(
               { sessionId, errorMessage: err instanceof Error ? err.message : String(err) },
@@ -112,9 +130,19 @@ app.all('/mcp', async (c) => {
 
         await server.connect(transport);
 
-        // Force the transport into initialized state so it accepts
+        // WORKAROUND: Force the transport into initialized state so it accepts
         // non-initialize requests (e.g. tools/call) from the stale client.
+        // This patches undocumented SDK internals — any SDK update can break it.
+        // A public API (sessionId constructor option) is proposed upstream:
+        // https://github.com/modelcontextprotocol/typescript-sdk/pull/1786
         const webTransport = (transport as unknown as { _webStandardTransport: { _initialized: boolean; sessionId: string } })._webStandardTransport;
+        if (!webTransport || !('_initialized' in webTransport)) {
+          logger.error({ sessionId }, 'SDK internals changed — session recovery unavailable');
+          return c.json(
+            { jsonrpc: '2.0', error: { code: -32600, message: 'Session expired, please reinitialize' }, id: null },
+            400,
+          );
+        }
         webTransport._initialized = true;
         webTransport.sessionId = sessionId;
 
@@ -127,22 +155,31 @@ app.all('/mcp', async (c) => {
       }
 
       logger.debug({ sessionId }, 'Routing to existing transport');
+
+      // When the client drops the SSE stream (GET), treat it as session end.
+      if (c.req.method === 'GET') {
+        res.on('close', () => {
+          if (!closingSessions.has(sessionId)) {
+            logger.info({ sessionId }, 'SSE stream closed by client, closing session');
+            void existing.transport.close();
+          }
+        });
+      }
+
       await existing.transport.handleRequest(req, res);
       sealResponse();
       return c.body(null);
     }
 
     logger.debug({ sessions: sessions.size }, 'Creating new MCP session');
-    let createdTransport: StreamableHTTPServerTransport | undefined;
     const server = createMcpServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (newSessionId) => {
-        sessions.set(newSessionId, { server, transport: createdTransport ?? transport });
+        sessions.set(newSessionId, { server, transport });
         logger.info({ sessionId: newSessionId, sessions: sessions.size }, 'MCP session initialized');
       },
     });
-    createdTransport = transport;
 
     transport.onclose = () => {
       const closedSessionId = transport.sessionId;
@@ -150,8 +187,7 @@ app.all('/mcp', async (c) => {
         if (closingSessions.has(closedSessionId)) return;
         closingSessions.add(closedSessionId);
         sessions.delete(closedSessionId);
-        recentlyClosedSessions.add(closedSessionId);
-        setTimeout(() => recentlyClosedSessions.delete(closedSessionId), CLOSED_SESSION_TTL_MS);
+        markSessionClosed(closedSessionId);
         connectionManager.onDisconnect(closedSessionId).catch((err) => {
           logger.error(
             { sessionId: closedSessionId, errorMessage: err instanceof Error ? err.message : String(err) },
@@ -198,7 +234,7 @@ app.all('/mcp', async (c) => {
   }
 });
 
-const shutdown = async (): Promise<void> => {
+async function shutdown(): Promise<void> {
   logger.info({ sessions: sessions.size }, 'Shutting down MCPuppet');
 
   for (const [sessionId, context] of sessions.entries()) {
@@ -210,7 +246,7 @@ const shutdown = async (): Promise<void> => {
 
   await browserManager.shutdown();
   process.exit(0);
-};
+}
 
 process.on('SIGINT', () => void shutdown());
 process.on('SIGTERM', () => void shutdown());
@@ -222,3 +258,6 @@ logger.info(
   'McPuppet startup complete',
 );
 logger.info(`McPuppet listening on http://${config.host}:${config.port}/mcp`);
+if (!config.authToken) {
+  logger.warn('No MCPUPPET_AUTH_TOKEN set — server is unauthenticated. Intended for localhost use only.');
+}

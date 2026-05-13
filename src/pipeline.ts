@@ -11,11 +11,11 @@ interface RunPipelineOptions {
   logContext?: Record<string, unknown>;
 }
 
-export const runPipeline = async <T extends object = Record<string, never>>(
+export async function runPipeline<T extends object = Record<string, never>>(
   ctx: StageContext<T>,
   pipeline: Pipeline<T>,
   options: RunPipelineOptions = {},
-): Promise<StageContext<T>> => {
+): Promise<StageContext<T>> {
   const pipelineName = options.name ?? 'pipeline';
 
   // Assign a human-readable timestamp with msec precision at pipeline creation.
@@ -33,6 +33,8 @@ export const runPipeline = async <T extends object = Record<string, never>>(
       now.getMilliseconds().toString().padStart(3, '0');
   let current = { ...ctx, timestamp } as StageContext<T>;
 
+  const stageSnapshots: { stage: string; html?: string }[] = [];
+
   logger.debug({ pipeline: pipelineName, timestamp, steps: pipeline.map((step) => step.name), ...options.logContext }, 'Starting pipeline');
 
   for (const stage of pipeline) {
@@ -40,6 +42,9 @@ export const runPipeline = async <T extends object = Record<string, never>>(
     logger.debug({ pipeline: pipelineName, stage: stage.name, ...options.logContext }, 'Running stage');
     try {
       current = await stage.execute(current);
+      if (config.sessionDebugDir) {
+        stageSnapshots.push({ stage: stage.name, html: current.html });
+      }
       logger.debug(
         { pipeline: pipelineName, stage: stage.name, durationMs: Date.now() - started, ...options.logContext },
         'Stage completed',
@@ -66,10 +71,11 @@ export const runPipeline = async <T extends object = Record<string, never>>(
     fs.mkdirSync(sessionDir, { recursive: true });
     const file = path.join(sessionDir, `${timestamp}-${pipelineName}.json`);
     // Exclude the page object — it is not serializable.
-    const { page: _page, ...serializable } = current as Record<string, unknown>;
-    fs.writeFileSync(file, JSON.stringify(serializable, null, 2));
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { page, ...serializable } = current as Record<string, unknown>;
+    fs.writeFileSync(file, JSON.stringify({ ...serializable, stageSnapshots }, null, 2));
     logger.debug({ pipeline: pipelineName, timestamp, file }, 'Wrote pipeline debug snapshot');
   }
 
   return current;
-};
+}

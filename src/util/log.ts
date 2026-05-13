@@ -1,8 +1,8 @@
 // Creates and exports the shared logger instance, resolving the log level from the LOG_LEVEL environment variable.
 import { consola } from 'consola';
 
-const resolveLogLevel = (): number => {
-  const value = process.env.LOG_LEVEL;
+function resolveLogLevel(): number {
+  const value = process.env.MCPUPPET_LOG_LEVEL;
   if (!value) {
     return 3;
   }
@@ -24,7 +24,7 @@ const resolveLogLevel = (): number => {
   };
 
   return namedLevels[value.toLowerCase()] ?? 3;
-};
+}
 
 export const logger = consola.create({
   level: resolveLogLevel(),

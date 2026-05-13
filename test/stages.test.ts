@@ -10,7 +10,7 @@ import { shouldEnforcePolicy } from '../src/stages/navigate.ts';
 import { config } from '../src/config.ts';
 import type { Stage } from '../src/types.ts';
 
-test('shouldEnforcePolicy enforces for navigation and http/https sub-resources only', () => {
+void test('shouldEnforcePolicy enforces for navigation and http/https sub-resources only', () => {
   // Navigation always enforced regardless of scheme.
   assert.equal(shouldEnforcePolicy(true, 'https://example.com/'), true);
   assert.equal(shouldEnforcePolicy(true, 'data:text/html,hi'), true);
@@ -22,42 +22,42 @@ test('shouldEnforcePolicy enforces for navigation and http/https sub-resources o
   assert.equal(shouldEnforcePolicy(false, 'blob:https://example.com/uuid'), false);
 });
 
-test('url-policy allows https', () => {
+void test('url-policy allows https', () => {
   const url = validateUrlPolicy('https://example.com/path');
   assert.equal(url.hostname, 'example.com');
 });
 
-test('url-policy blocks localhost/private/metadata/non-http', () => {
-  assert.throws(() => validateUrlPolicy('http://localhost:3000'));
+void test('url-policy blocks localhost/private/metadata/non-http', () => {
+  assert.throws(() => validateUrlPolicy('http://localhost:5420'));
   assert.throws(() => validateUrlPolicy('http://192.168.1.8/test'));
   assert.throws(() => validateUrlPolicy('http://169.254.169.254/latest/meta-data'));
   assert.throws(() => validateUrlPolicy('file:///etc/passwd'));
 });
 
-test('url-policy blocks IPv4-mapped IPv6 (SSRF bypass)', () => {
+void test('url-policy blocks IPv4-mapped IPv6 (SSRF bypass)', () => {
   assert.throws(() => validateUrlPolicy('http://[::ffff:169.254.169.254]/'));
   assert.throws(() => validateUrlPolicy('http://[::ffff:192.168.1.1]/'));
   assert.throws(() => validateUrlPolicy('http://[::ffff:127.0.0.1]/'));
 });
 
-test('url-policy blocks link-local and unique-local IPv6', () => {
+void test('url-policy blocks link-local and unique-local IPv6', () => {
   assert.throws(() => validateUrlPolicy('http://[fe80::1]/'));
   assert.throws(() => validateUrlPolicy('http://[fc00::1]/'));
   assert.throws(() => validateUrlPolicy('http://[fd12:3456:789a::1]/'));
 });
 
-test('url-policy blocks IPv6 unspecified address [::]', () => {
+void test('url-policy blocks IPv6 unspecified address [::]', () => {
   assert.throws(() => validateUrlPolicy('http://[::]/'), /Blocked/);
 });
 
-test('url-policy blocks IPv4-compatible IPv6 SSRF bypass – dotted inputs (URL-normalised to hex)', () => {
+void test('url-policy blocks IPv4-compatible IPv6 SSRF bypass – dotted inputs (URL-normalised to hex)', () => {
   // The WHATWG URL parser normalises ::a.b.c.d to ::HHHH:HHHH, so these hit the hex path.
   assert.throws(() => validateUrlPolicy('http://[::127.0.0.1]/'), /Blocked/);
   assert.throws(() => validateUrlPolicy('http://[::169.254.169.254]/'), /Blocked/);
   assert.throws(() => validateUrlPolicy('http://[::192.168.1.1]/'), /Blocked/);
 });
 
-test('url-policy blocks IPv4-compatible IPv6 SSRF bypass – normalized hex forms', () => {
+void test('url-policy blocks IPv4-compatible IPv6 SSRF bypass – normalized hex forms', () => {
   // ::7f00:1     = ::127.0.0.1   (loopback)
   assert.throws(() => validateUrlPolicy('http://[::7f00:1]/'), /Blocked/);
   // ::a9fe:a9fe  = ::169.254.169.254  (link-local metadata)
@@ -66,12 +66,12 @@ test('url-policy blocks IPv4-compatible IPv6 SSRF bypass – normalized hex form
   assert.throws(() => validateUrlPolicy('http://[::c0a8:101]/'), /Blocked/);
 });
 
-test('url-policy allows IPv4-compatible IPv6 with public IP', () => {
+void test('url-policy allows IPv4-compatible IPv6 with public IP', () => {
   // ::808:808 = ::8.8.8.8 (Google DNS – public, must not be blocked)
   assert.doesNotThrow(() => validateUrlPolicy('http://[::808:808]/'));
 });
 
-test('extractIPv4Compatible – dotted and hex forms', () => {
+void test('extractIPv4Compatible – dotted and hex forms', () => {
   assert.equal(extractIPv4Compatible('::127.0.0.1'), '127.0.0.1');
   assert.equal(extractIPv4Compatible('::169.254.169.254'), '169.254.169.254');
   assert.equal(extractIPv4Compatible('::7f00:1'), '127.0.0.1');
@@ -86,7 +86,7 @@ test('extractIPv4Compatible – dotted and hex forms', () => {
 });
 
 
-test('redirect-guard rejects when redirect count exceeds limit', async () => {
+void test('redirect-guard rejects when redirect count exceeds limit', async () => {
   await assert.rejects(
     () =>
       redirectGuardStage.execute({
@@ -98,7 +98,7 @@ test('redirect-guard rejects when redirect count exceeds limit', async () => {
   );
 });
 
-test('redirect-guard rejects redirect to private IP', async () => {
+void test('redirect-guard rejects redirect to private IP', async () => {
   await assert.rejects(
     () =>
       redirectGuardStage.execute({
@@ -110,7 +110,7 @@ test('redirect-guard rejects redirect to private IP', async () => {
   );
 });
 
-test('content-fence wraps markdown correctly', async () => {
+void test('content-fence wraps markdown correctly', async () => {
   const out = await contentFenceStage.execute({
     url: 'https://example.com',
     markdown: 'content',
@@ -121,7 +121,7 @@ test('content-fence wraps markdown correctly', async () => {
   // Opening tag has a random nonce, e.g. <external-content-a1b2c3d4>
   assert.match(md, /^<external-content-[0-9a-f]{8}>/);
   // Opening and closing nonce tags must match
-  const nonceMatch = md.match(/^<external-content-([0-9a-f]{8})>/);
+  const nonceMatch = /^<external-content-([0-9a-f]{8})>/.exec(md);
   assert.ok(nonceMatch, 'nonce tag not found');
   const nonce = nonceMatch[1];
   assert.match(md, new RegExp(`</external-content-${nonce}>$`));
@@ -133,18 +133,18 @@ test('content-fence wraps markdown correctly', async () => {
   assert.match(md, /\]\]><\/content-markdown>/);
 });
 
-test('pipeline composes stages', async () => {
+void test('pipeline composes stages', async () => {
   const pipeline: Stage[] = [
     {
       name: 'one',
-      async execute(ctx) {
-        return { ...ctx, markdown: 'a' };
+      execute(ctx) {
+        return Promise.resolve({ ...ctx, markdown: 'a' });
       },
     },
     {
       name: 'two',
-      async execute(ctx) {
-        return { ...ctx, markdown: `${ctx.markdown}b` };
+      execute(ctx) {
+        return Promise.resolve({ ...ctx, markdown: `${ctx.markdown}b` });
       },
     },
   ];
@@ -153,11 +153,11 @@ test('pipeline composes stages', async () => {
   assert.equal(out.markdown, 'ab');
 });
 
-test('pipeline propagates stage error', async () => {
+void test('pipeline propagates stage error', async () => {
   const pipeline: Stage[] = [
     {
       name: 'explode',
-      async execute() {
+      execute(): never {
         throw new Error('pipeline-failure');
       },
     },
@@ -166,7 +166,7 @@ test('pipeline propagates stage error', async () => {
   await assert.rejects(() => runPipeline({ warnings: [] }, pipeline), /pipeline-failure/);
 });
 
-test('sanitize-and-clean combines both passes and provides document', async () => {
+void test('sanitize-and-clean combines both passes and provides document', async () => {
   const input = '<html><body><!--secret--><p aria-hidden="true">hidden</p><header>hdr</header><nav>n</nav><main>ok</main><script>bad()</script></body></html>';
   const out = await sanitizeAndCleanStage.execute({ html: input, warnings: [] });
 

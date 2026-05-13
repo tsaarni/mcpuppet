@@ -13,6 +13,11 @@ turndown.addRule('simple-links', {
     if (!href) {
       return text;
     }
+    // Block-level content inside a link can't be wrapped in []() syntax.
+    // Render the content as-is and append the URL as a proper link.
+    if (text.includes('\n')) {
+      return `\n\n${text}\n[${href}](${href})\n\n`;
+    }
     return `[${text}](${href})`;
   },
 });
@@ -27,14 +32,14 @@ turndown.addRule('images-with-substantial-alt', {
 
 export const toMarkdownStage: Stage = {
   name: 'to-markdown',
-  async execute(ctx) {
+  execute(ctx) {
     if (!ctx.html) {
       throw new Error('HTML is required for markdown conversion');
     }
 
-    return {
+    return Promise.resolve({
       ...ctx,
       markdown: turndown.turndown(ctx.html).trim(),
-    };
+    });
   },
 };

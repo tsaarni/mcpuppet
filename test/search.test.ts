@@ -16,13 +16,13 @@ class MockBackend implements SearchBackend {
 
   private readonly response: Omit<SearchResult, 'backend'>;
 
-  async search(_page: unknown, _query: string, _sessionId?: string, pageNumber?: number): Promise<Omit<SearchResult, 'backend'>> {
+  search(_page: unknown, _query: string, _sessionId?: string, pageNumber?: number): Promise<Omit<SearchResult, 'backend'>> {
     this.pageNumbers.push(pageNumber);
-    return this.response;
+    return Promise.resolve(this.response);
   }
 }
 
-test('runSearch includes backend name in result', async () => {
+void test('runSearch includes backend name in result', async () => {
   const backend = new MockBackend('mybackend', { markdown: '# Result', url: 'https://example.com', title: 'Result', warnings: [] });
 
   const result = await runSearch({} as never, 'q', backend);
@@ -30,7 +30,7 @@ test('runSearch includes backend name in result', async () => {
   assert.equal(result.backend, 'mybackend');
 });
 
-test('runSearch returns markdown from backend', async () => {
+void test('runSearch returns markdown from backend', async () => {
   const backend = new MockBackend('mock', { markdown: '## Heading\nSome content', url: 'https://example.com', title: 'Title', warnings: [] });
 
   const result = await runSearch({} as never, 'q', backend);
@@ -38,7 +38,7 @@ test('runSearch returns markdown from backend', async () => {
   assert.equal(result.markdown, '## Heading\nSome content');
 });
 
-test('runSearch passes pageNumber to backend', async () => {
+void test('runSearch passes pageNumber to backend', async () => {
   const backend = new MockBackend('mock', { markdown: '', url: 'https://example.com', title: 'T', warnings: [] });
 
   await runSearch({} as never, 'q', backend, undefined, 3);
@@ -46,7 +46,7 @@ test('runSearch passes pageNumber to backend', async () => {
   assert.equal(backend.pageNumbers[0], 3);
 });
 
-test('registry selects backend by name', () => {
+void test('registry selects backend by name', () => {
   clearSearchBackends();
   const backend = new MockBackend('custom', { markdown: '', url: 'https://example.com', title: 'T', warnings: [] });
 
@@ -55,7 +55,7 @@ test('registry selects backend by name', () => {
   assert.equal(resolveSearchBackend('custom'), backend);
 });
 
-test('registry throws for unknown backend', () => {
+void test('registry throws for unknown backend', () => {
   clearSearchBackends();
 
   assert.throws(() => resolveSearchBackend('nonexistent'), /Unknown search backend/);

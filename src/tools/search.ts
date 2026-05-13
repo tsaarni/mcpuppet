@@ -9,13 +9,13 @@ import { fenceExternalContent } from '../stages/content-fence.ts';
 import type { SearchBackend, SearchResult } from '../search/interface.ts';
 import { logger } from '../util/log.ts';
 
-export const runSearch = async (
+export async function runSearch(
   page: Page,
   query: string,
   backend: SearchBackend,
   sessionId?: string,
   pageNumber?: number,
-): Promise<SearchResult> => {
+): Promise<SearchResult> {
   const started = Date.now();
   logger.info({ backend: backend.name, queryLength: query.length, pageNumber }, 'Running search');
   const raw = await backend.search(page, query, sessionId, pageNumber);
@@ -27,11 +27,9 @@ export const runSearch = async (
   );
 
   return result;
-};
+}
 
-const asStructured = (value: unknown): Record<string, unknown> => value as Record<string, unknown>;
-
-export const register = (server: McpServer, connectionManager: ConnectionManager, resolveBackend: () => SearchBackend): void => {
+export function register(server: McpServer, connectionManager: ConnectionManager, resolveBackend: () => SearchBackend): void {
   server.registerTool(
     'search',
     {
@@ -65,11 +63,11 @@ export const register = (server: McpServer, connectionManager: ConnectionManager
         );
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-          structuredContent: asStructured(result),
+          structuredContent: { ...result },
         };
       } finally {
         release();
       }
     },
   );
-};
+}

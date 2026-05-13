@@ -1,5 +1,5 @@
 // Reads all runtime configuration from environment variables and exports a single typed config object.
-const envNumber = (name: string, fallback: number): number => {
+function envNumber(name: string, fallback: number): number {
   const value = process.env[name];
   if (!value) {
     return fallback;
@@ -11,28 +11,29 @@ const envNumber = (name: string, fallback: number): number => {
   }
 
   return parsed;
-};
+}
 
-const envBoolean = (name: string, fallback: boolean): boolean => {
+function envBoolean(name: string, fallback: boolean): boolean {
   const value = process.env[name];
   if (!value) {
     return fallback;
   }
 
   return value.toLowerCase() === 'true';
-};
+}
 
 export const config = {
-  headless: envBoolean('HEADLESS', false),
-  slowMo: envNumber('SLOW_MO', 0),
-  maxConnections: envNumber('MAX_CONNECTIONS', 10),
-  requestTimeoutMs: envNumber('REQUEST_TIMEOUT_MS', 30000),
-  settleDelayMs: envNumber('SETTLE_DELAY_MS', 1000),
-  maxRedirects: envNumber('MAX_REDIRECTS', 5),
-  searchBackend: process.env.SEARCH_BACKEND ?? 'google',
-  sessionDebugDir: process.env.SESSION_DEBUG_DIR ?? '',
-  executablePath: process.env.EXECUTABLE_PATH ?? '',  // If unset, Puppeteer's bundled browser is used.
-  userDataDir: process.env.USER_DATA_DIR ?? './.browser-data',
-  port: envNumber('PORT', 3000),
-  host: process.env.HOST ?? '127.0.0.1',
+  headless: envBoolean('MCPUPPET_HEADLESS', false),
+  slowMo: envNumber('MCPUPPET_SLOW_MO', 0),
+  maxConnections: envNumber('MCPUPPET_MAX_CONNECTIONS', 10),
+  requestTimeoutMs: envNumber('MCPUPPET_REQUEST_TIMEOUT_MS', 30000),
+  settleDelayMs: envNumber('MCPUPPET_SETTLE_DELAY_MS', 1000),
+  maxRedirects: envNumber('MCPUPPET_MAX_REDIRECTS', 5),
+  searchBackend: process.env.MCPUPPET_SEARCH_BACKEND ?? 'google',
+  sessionDebugDir: process.env.MCPUPPET_SESSION_DEBUG_DIR ?? '',
+  executablePath: process.env.MCPUPPET_EXECUTABLE_PATH ?? '',  // If unset, Puppeteer's bundled browser is used.
+  userDataDir: process.env.MCPUPPET_USER_DATA_DIR ?? './.browser-data',
+  port: envNumber('MCPUPPET_PORT', 5420),
+  host: process.env.MCPUPPET_HOST ?? '127.0.0.1',
+  authToken: process.env.MCPUPPET_AUTH_TOKEN ?? '',
 } as const;

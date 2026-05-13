@@ -5,10 +5,9 @@ import type { Page } from 'puppeteer';
 import { googleCaptchaStage } from '../stages/google-captcha.ts';
 import { cookieConsentStage } from '../stages/cookie-consent.ts';
 import { googleExtractResultsStage } from '../stages/google-extract-results.ts';
-import { navigateStage } from '../stages/navigate.ts';
+import { createNavigateStage } from '../stages/navigate.ts';
 import { toMarkdownStage } from '../stages/to-markdown.ts';
 import { runPipeline } from '../pipeline.ts';
-import type { Stage } from '../types.ts';
 import type { SearchBackend, SearchResult } from './interface.ts';
 
 export class GoogleSearchBackend implements SearchBackend {
@@ -24,11 +23,11 @@ export class GoogleSearchBackend implements SearchBackend {
     const result = await runPipeline(
       { url, page, warnings: [], sessionId },
       [
-        navigateStage,
-        googleCaptchaStage as Stage,
-        cookieConsentStage as Stage,
-        googleExtractResultsStage as Stage,
-        toMarkdownStage as Stage,
+        createNavigateStage({ ssrf: true }),
+        googleCaptchaStage,
+        cookieConsentStage,
+        googleExtractResultsStage,
+        toMarkdownStage,
       ],
       { name: 'search', logContext: { backend: this.name, queryLength: query.length, pageNumber } },
     );

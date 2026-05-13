@@ -2,13 +2,14 @@
 import { randomBytes } from 'node:crypto';
 import type { Stage } from '../types.ts';
 
-const xmlEscape = (value: string): string =>
-  value
+function xmlEscape(value: string): string {
+  return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;');
+}
 
 /**
  * Wraps external content in a tagged fence with a per-call random nonce.
@@ -22,7 +23,7 @@ const xmlEscape = (value: string): string =>
  *  - The nonce makes it harder for page content to spoof the fence boundary,
  *    but it is not a cryptographic guarantee — treat it as a speed bump.
  */
-export const fenceExternalContent = (sourceUrl: string, content: string): string => {
+export function fenceExternalContent(sourceUrl: string, content: string): string {
   const nonce = randomBytes(4).toString('hex');
   // Split any literal "]]>" to keep the wrapped payload inside CDATA safely.
   const safeContent = content.replaceAll(']]>', ']]]]><![CDATA[>');
@@ -35,11 +36,11 @@ export const fenceExternalContent = (sourceUrl: string, content: string): string
     ']]></content-markdown>',
     `</external-content-${nonce}>`,
   ].join('\n');
-};
+}
 
 export const contentFenceStage: Stage = {
   name: 'content-fence',
-  async execute(ctx) {
+  execute(ctx) {
     if (!ctx.url) {
       throw new Error('URL is required for content fence');
     }
@@ -47,6 +48,6 @@ export const contentFenceStage: Stage = {
     const content = ctx.markdown ?? '';
     const fenced = fenceExternalContent(ctx.url, content);
 
-    return { ...ctx, markdown: fenced };
+    return Promise.resolve({ ...ctx, markdown: fenced });
   },
 };

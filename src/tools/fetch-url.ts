@@ -26,7 +26,7 @@ export interface FetchUrlResult {
   warnings: string[];
 }
 
-export const fetchUrl = async (page: Page, url: string, sessionId?: string): Promise<FetchUrlResult> => {
+export async function fetchUrl(page: Page, url: string, sessionId?: string): Promise<FetchUrlResult> {
   const started = Date.now();
   logger.info({ url }, 'Fetching URL');
 
@@ -73,11 +73,9 @@ export const fetchUrl = async (page: Page, url: string, sessionId?: string): Pro
       }
     }
   }
-};
+}
 
-const asStructured = (value: unknown): Record<string, unknown> => value as Record<string, unknown>;
-
-export const register = (server: McpServer, connectionManager: ConnectionManager): void => {
+export function register(server: McpServer, connectionManager: ConnectionManager): void {
   server.registerTool(
     'fetch_url',
     {
@@ -108,11 +106,11 @@ export const register = (server: McpServer, connectionManager: ConnectionManager
         );
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-          structuredContent: asStructured(result),
+          structuredContent: { ...result },
         };
       } finally {
         release();
       }
     },
   );
-};
+}

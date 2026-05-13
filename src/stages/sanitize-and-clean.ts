@@ -4,7 +4,7 @@ import { parseHTML } from 'linkedom';
 
 import type { Stage } from '../types.ts';
 
-const isInvisibleByStyle = (style: string): boolean => {
+function isInvisibleByStyle(style: string): boolean {
   const normalized = style.replace(/\s+/g, '').toLowerCase();
   return (
     normalized.includes('display:none') ||
@@ -17,13 +17,13 @@ const isInvisibleByStyle = (style: string): boolean => {
     normalized.includes('text-indent:-') ||
     normalized.includes('clip-path:inset(100')
   );
-};
+}
 
-const isZeroDim = (el: Element): boolean => {
+function isZeroDim(el: Element): boolean {
   const width = el.getAttribute('width');
   const height = el.getAttribute('height');
   return width === '0' || height === '0';
-};
+}
 
 const REMOVE_SELECTORS = [
   'script',
@@ -46,7 +46,7 @@ const AD_PATTERN = /(?:^|[\s_-])ad(?:[\s_-]|$)/i;
 
 export const sanitizeAndCleanStage: Stage = {
   name: 'sanitize-and-clean',
-  async execute(ctx) {
+  execute(ctx) {
     if (!ctx.html) {
       throw new Error('HTML is required');
     }
@@ -93,6 +93,6 @@ export const sanitizeAndCleanStage: Stage = {
       }
     }
 
-    return { ...ctx, html: document.toString(), document };
+    return Promise.resolve({ ...ctx, html: (document as unknown as { toString(): string }).toString(), document });
   },
 };

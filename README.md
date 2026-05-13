@@ -7,6 +7,9 @@ Each MCP session gets a dedicated browser tab. The tab is created on first use a
 
 Content is cleaned before being returned: hidden elements and HTML comments are stripped, boilerplate is removed, Mozilla Readability extracts the main article, and the result is converted to Markdown for more effective token usage. The output is wrapped in a tagged fence so agents know it's untrusted external content.
 
+> [!NOTE]
+> This codebase is LLM-generated.
+
 ## Tools
 
 - `fetch_url`: Navigate to a URL and return the full extracted Markdown content.
@@ -20,7 +23,7 @@ npm run build
 node dist/src/main.js
 ```
 
-The server starts on `http://127.0.0.1:3000` by default.
+The server starts on `http://127.0.0.1:5420` by default.
 
 ## Configuration
 
@@ -28,19 +31,23 @@ All settings are controlled by environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOST` | `127.0.0.1` | Bind address |
-| `PORT` | `3000` | HTTP port |
-| `HEADLESS` | `false` | Run browser headless (set `true` for CI) |
-| `SLOW_MO` | `0` | ms delay per Puppeteer action (for human observation) |
-| `MAX_CONNECTIONS` | `10` | Max concurrent sessions |
-| `REQUEST_TIMEOUT_MS` | `30000` | Page request timeout in milliseconds |
-| `SETTLE_DELAY_MS` | `1000` | Delay after page load before extracting content (ms) |
-| `MAX_REDIRECTS` | `5` | Maximum number of HTTP redirects to follow |
-| `SEARCH_BACKEND` | `google` | Search provider |
-| `LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
-| `EXECUTABLE_PATH` | _(empty)_ | Path to Chrome/Chromium executable (uses Puppeteer's bundled version if empty) |
-| `USER_DATA_DIR` | `./.browser-data` | Chromium profile (persists cookies across restarts) |
-| `SESSION_DEBUG_DIR` | _(empty)_ | Directory for session debug dumps (disabled when empty) |
+| `MCPUPPET_HOST` | `127.0.0.1` | Bind address |
+| `MCPUPPET_PORT` | `5420` | HTTP port |
+| `MCPUPPET_HEADLESS` | `false` | Run browser headless |
+| `MCPUPPET_SLOW_MO` | `0` | ms delay per Puppeteer action (for human observation) |
+| `MCPUPPET_MAX_CONNECTIONS` | `10` | Max concurrent sessions |
+| `MCPUPPET_REQUEST_TIMEOUT_MS` | `30000` | Page request timeout in milliseconds |
+| `MCPUPPET_SETTLE_DELAY_MS` | `1000` | Delay after page load before extracting content (ms) |
+| `MCPUPPET_MAX_REDIRECTS` | `5` | Maximum number of HTTP redirects to follow |
+| `MCPUPPET_SEARCH_BACKEND` | `google` | Search provider |
+| `MCPUPPET_LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
+| `MCPUPPET_EXECUTABLE_PATH` | _(empty)_ | Path to Chrome/Chromium executable (uses Puppeteer's bundled version if empty) |
+| `MCPUPPET_USER_DATA_DIR` | `./.browser-data` | Chromium profile (persists cookies across restarts) |
+| `MCPUPPET_SESSION_DEBUG_DIR` | _(empty)_ | Directory for session debug dumps (disabled when empty) |
+| `MCPUPPET_AUTH_TOKEN` | _(empty)_ | Bearer token required on all requests (unauthenticated if unset) |
+
+> [!WARNING]
+> When `MCPUPPET_AUTH_TOKEN` is not set the server accepts all requests without authentication. It is intended for localhost use only (`MCPUPPET_HOST=127.0.0.1`). Do not expose it on a network interface without setting a token.
 
 You can use environment variables directly or load them from a file:
 
@@ -59,7 +66,7 @@ Edit `~/.kiro/agents/<agent>.json` (agent-specific) or `~/.kiro/settings/mcp.jso
 {
   "mcpServers": {
     "mcpuppet": {
-      "url": "http://127.0.0.1:3000/mcp"
+      "url": "http://127.0.0.1:5420/mcp"
     }
   }
 }
@@ -73,7 +80,8 @@ It acts as an MCP client that connects to the local server.
 Install the CLI on your PATH:
 
 ```bash
-npm link
+cp dist/src/cli.js /usr/local/bin/mcpuppet-cli
+chmod +x /usr/local/bin/mcpuppet-cli
 ```
 
 Then use a skill file to guide the agent to call the CLI:

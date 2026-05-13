@@ -23,7 +23,7 @@ const IGNORED_DEFAULT_ARGS = [
 export class BrowserManager {
   private browser: Browser | null = null;
   private intentionalShutdown = false;
-  private disconnectListeners: Array<() => void> = [];
+  private disconnectListeners: (() => void)[] = [];
 
   /** Register a listener called on unexpected browser disconnect (before relaunch). */
   onBrowserDisconnect(listener: () => void): void {
@@ -41,14 +41,14 @@ export class BrowserManager {
 
     // Remove lock files left by a previous unclean shutdown so Chrome doesn't
     // refuse to start or attach to a stale instance.
-    for (const file of fs.readdirSync(config.userDataDir).filter(f => f.startsWith('Singleton'))) {
-      try { fs.unlinkSync(path.join(config.userDataDir, file)); } catch {}
+    for (const file of (fs.existsSync(config.userDataDir) ? fs.readdirSync(config.userDataDir) : []).filter(f => f.startsWith('Singleton'))) {
+      try { fs.unlinkSync(path.join(config.userDataDir, file)); } catch { /* ignore */ }
     }
 
     // Remove session restore data so Chrome doesn't reopen tabs from a
     // previous session (happens when Chrome was killed without graceful shutdown).
     const sessionsDir = path.join(config.userDataDir, 'Default', 'Sessions');
-    try { fs.rmSync(sessionsDir, { recursive: true }); } catch {}
+    try { fs.rmSync(sessionsDir, { recursive: true }); } catch { /* ignore */ }
 
     this.browser = await puppeteer.launch({
       headless: config.headless,
@@ -74,7 +74,7 @@ export class BrowserManager {
       if (!this.intentionalShutdown) {
         logger.info('Chrome disconnected unexpectedly, restarting...');
         for (const listener of this.disconnectListeners) listener();
-        this.launch().catch((err) => logger.error({ err }, 'Failed to restart browser'));
+        this.launch().catch((err: unknown) => logger.error({ err }, 'Failed to restart browser'));
       }
     });
 

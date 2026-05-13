@@ -18,11 +18,11 @@ export interface BaseFilterContext {
   cleanups?: (() => Promise<void>)[];
 }
 
-export type StageContext<T extends object = {}> = BaseFilterContext & T;
+export type StageContext<T extends object = object> = BaseFilterContext & T;
 
-export interface Stage<T extends object = {}> {
+export interface Stage<T extends object = object> {
   name: string;
   execute(ctx: StageContext<T>): Promise<StageContext<T>>;
 }
 
-export type Pipeline<T extends object = {}> = Stage<T>[];
+export type Pipeline<T extends object = object> = Stage<T>[];

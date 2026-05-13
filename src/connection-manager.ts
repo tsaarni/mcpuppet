@@ -43,7 +43,7 @@ export class ConnectionManager {
         throw new Error(`Maximum connections reached (${config.maxConnections})`);
       }
 
-      state = { page: null, pagePromise: null, createdAt: new Date(), mutex: withTimeout(new Mutex(), config.requestTimeoutMs), invalidated: false };
+      state = { page: null, pagePromise: null, createdAt: new Date(), mutex: withTimeout(new Mutex(), config.requestTimeoutMs + config.settleDelayMs), invalidated: false };
       this.connections.set(connectionId, state);
       logger.debug({ connectionId, currentConnections: this.connections.size }, 'Connection state created');
     }
@@ -58,8 +58,8 @@ export class ConnectionManager {
         logger.debug({ connectionId }, 'Creating browser page for connection');
         state.pagePromise = this.browserManager.getPage().then(
           (page) => {
-            state!.page = page;
-            state!.pagePromise = null;
+            state.page = page;
+            state.pagePromise = null;
             logger.debug({ connectionId }, 'Browser page created');
             return page;
           },

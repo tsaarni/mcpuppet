@@ -5,7 +5,7 @@ import { validateUrlPolicy } from './url-policy.ts';
 
 export const redirectGuardStage: Stage = {
   name: 'redirect-guard',
-  async execute(ctx) {
+  execute(ctx) {
     const redirectCount = ctx.redirectCount ?? 0;
     if (redirectCount > config.maxRedirects) {
       throw new Error(`Too many redirects: ${redirectCount}`);
@@ -16,6 +16,6 @@ export const redirectGuardStage: Stage = {
     }
 
     validateUrlPolicy(ctx.url);
-    return ctx;
+    return Promise.resolve(ctx);
   },
 };

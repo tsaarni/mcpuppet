@@ -58,7 +58,7 @@ export function extractIPv4Compatible(host: string): string | null {
   return null;
 }
 
-export const validateUrlPolicy = (rawUrl: string): URL => {
+export function validateUrlPolicy(rawUrl: string): URL {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -93,7 +93,7 @@ export const validateUrlPolicy = (rawUrl: string): URL => {
   }
 
   return parsed;
-};
+}
 
 /**
  * Resolves the hostname via DNS and validates all resolved IPs against private/reserved ranges.
