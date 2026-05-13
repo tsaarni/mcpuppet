@@ -46,9 +46,6 @@ All settings are controlled by environment variables:
 | `MCPUPPET_SESSION_DEBUG_DIR` | _(empty)_ | Directory for session debug dumps (disabled when empty) |
 | `MCPUPPET_AUTH_TOKEN` | _(empty)_ | Bearer token required on all requests (unauthenticated if unset) |
 
-> [!WARNING]
-> When `MCPUPPET_AUTH_TOKEN` is not set the server accepts all requests without authentication. It is intended for localhost use only (`MCPUPPET_HOST=127.0.0.1`). Do not expose it on a network interface without setting a token.
-
 You can use environment variables directly or load them from a file:
 
 ```bash
@@ -56,6 +53,12 @@ node --env-file=.env dist/src/main.js
 ```
 
 Refer to [`.env.example`](.env.example) as a template.
+
+> [!WARNING]
+> When `MCPUPPET_AUTH_TOKEN` is not set the server accepts all requests without authentication. It is intended for localhost use only (`MCPUPPET_HOST=127.0.0.1`). Do not expose it on a network interface without setting a token.
+
+> [!NOTE]
+> **Ubuntu 23.10+:** Puppeteer's bundled Chrome fails with `No usable sandbox!` due to [AppArmor user namespace restrictions](https://github.com/puppeteer/puppeteer/issues/12818). Fix: set `MCPUPPET_EXECUTABLE_PATH=/opt/google/chrome/chrome` to use system Chrome.
 
 
 ## Adding to Kiro as a remote MCP server
