@@ -16,25 +16,25 @@
     "test": "node --import tsx --test test/**/*.test.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.7",
-    "@modelcontextprotocol/sdk": "^1.17.4",
+    "@hono/node-server": "^2.0.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@mozilla/readability": "^0.6.0",
     "async-mutex": "^0.5.0",
     "consola": "^3.4.2",
-    "hono": "^4.6.12",
+    "hono": "^4.12.18",
     "linkedom": "^0.18.12",
-    "puppeteer": "^24.15.0",
-    "turndown": "^7.2.0",
-    "zod": "^3.23.8"
+    "puppeteer": "^24.43.1",
+    "turndown": "^7.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/mozilla__readability": "^0.4.2",
-    "@types/node": "^24.3.0",
-    "@types/turndown": "^5.0.5",
+    "@types/node": "^25.7.0",
+    "@types/turndown": "^5.0.6",
     "eslint": "^10.3.0",
-    "tsx": "^4.19.1",
-    "typescript": "^5.6.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.3"
   }
 }
