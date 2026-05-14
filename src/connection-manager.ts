@@ -104,9 +104,24 @@ export class ConnectionManager {
       }
     }
 
-    if (state.page) {
-      await state.page.close();
-      logger.debug({ connectionId }, 'Connection page closed');
+    // Acquire the mutex to wait for any in-flight pipeline to finish before
+    // closing the page. If the mutex times out, close anyway — the active
+    // pipeline will fail with a "Target closed" error, which is acceptable
+    // since the client is already gone.
+    let release: (() => void) | null = null;
+    try {
+      release = await state.mutex.acquire();
+    } catch {
+      // Timeout waiting for in-flight pipeline; proceed with close.
+    }
+
+    try {
+      if (state.page) {
+        await state.page.close();
+        logger.debug({ connectionId }, 'Connection page closed');
+      }
+    } finally {
+      release?.();
     }
   }
 

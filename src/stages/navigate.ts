@@ -10,7 +10,11 @@ import { logger } from '../util/log.ts';
 /** Ignore errors that are expected when a request is already handled or the page is closed. */
 function ignoreRequestError(err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
-  if (!msg.includes('Request is already handled') && !msg.includes('Target closed')) {
+  if (
+    !msg.includes('Request is already handled') &&
+    !msg.includes('Target closed') &&
+    !msg.includes('Request Interception is not enabled')
+  ) {
     logger.warn({ err }, 'Unexpected error handling intercepted request');
   }
 }
@@ -70,7 +74,7 @@ export class NavigateStage extends Stage {
             if (request.isNavigationRequest()) {
               await resolveAndValidateDns(parsed);
             }
-            await request.continue();
+            await request.continue().catch(ignoreRequestError);
           } catch (policyErr) {
             // If policy validation failed, abort; if abort itself fails, log it.
             const msg = policyErr instanceof Error ? policyErr.message : String(policyErr);

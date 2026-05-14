@@ -42,7 +42,11 @@ const sessions = new Map<string, SessionContext>();
 // When a stale client keeps retrying with the same session ID, without this guard
 // the server would recover → close → recover → close in a tight loop until OOM.
 const recentlyClosedSessions = new Set<string>();
-const CLOSED_SESSION_TTL_MS = 5000;
+const CLOSED_SESSION_TTL_MS = 30000;
+
+// Tracks the active SSE response per session to avoid closing sessions
+// when stale retry requests close. Only the active stream should trigger close.
+const activeSSEStreams = new Map<string, ServerResponse>();
 const RECENTLY_CLOSED_SESSION_LIMIT = 1000;
 
 function markSessionClosed(sessionId: string): void {
@@ -108,6 +112,7 @@ app.all('/mcp', async (c) => {
           if (closingSessions.has(sessionId)) return;
           closingSessions.add(sessionId);
           sessions.delete(sessionId);
+          activeSSEStreams.delete(sessionId);
           markSessionClosed(sessionId);
           connectionManager.onDisconnect(sessionId).catch((err) => {
             logger.error(
@@ -157,13 +162,25 @@ app.all('/mcp', async (c) => {
       logger.debug({ sessionId }, 'Routing to existing transport');
 
       // When the client drops the SSE stream (GET), treat it as session end.
+      // Only track ONE active SSE stream per session to avoid stale retries closing the session.
       if (c.req.method === 'GET') {
-        res.on('close', () => {
-          if (!closingSessions.has(sessionId)) {
-            logger.info({ sessionId }, 'SSE stream closed by client, closing session');
-            void existing.transport.close();
-          }
-        });
+        const existingStream = activeSSEStreams.get(sessionId);
+        if (existingStream && !existingStream.writableEnded) {
+          // There's already an active SSE stream; this is likely a stale retry.
+          // Don't set up the close handler — let this request be handled but
+          // don't let it trigger session teardown.
+          logger.debug({ sessionId }, 'Ignoring duplicate SSE stream (active stream exists)');
+        } else {
+          activeSSEStreams.set(sessionId, res);
+          res.on('close', () => {
+            // Only close if this is still the active stream for this session
+            if (activeSSEStreams.get(sessionId) === res && !closingSessions.has(sessionId)) {
+              activeSSEStreams.delete(sessionId);
+              logger.info({ sessionId }, 'SSE stream closed by client, closing session');
+              void existing.transport.close();
+            }
+          });
+        }
       }
 
       await existing.transport.handleRequest(req, res);
@@ -187,6 +204,7 @@ app.all('/mcp', async (c) => {
         if (closingSessions.has(closedSessionId)) return;
         closingSessions.add(closedSessionId);
         sessions.delete(closedSessionId);
+        activeSSEStreams.delete(closedSessionId);
         markSessionClosed(closedSessionId);
         connectionManager.onDisconnect(closedSessionId).catch((err) => {
           logger.error(

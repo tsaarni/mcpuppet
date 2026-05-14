@@ -45,8 +45,17 @@ export class CookieConsentStage extends Stage {
 
     if (result.dismissed) {
       logger.info({ cmp: result.cmp }, `Dismissed cookie consent dialog (${result.cmp})`);
-      // Refresh HTML since DOM may have changed
-      return { ...ctx, html: await ctx.page.content() };
+      // Refresh HTML since DOM may have changed. The dismiss click may trigger a navigation,
+      // which destroys the execution context; fall back to the existing HTML in that case.
+      try {
+        return { ...ctx, html: await ctx.page.content() };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('Execution context was destroyed') || msg.includes('Target closed')) {
+          return ctx;
+        }
+        throw err;
+      }
     }
 
     return ctx;
