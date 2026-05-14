@@ -78,7 +78,7 @@ Build the standalone CLI binary and copy it to your PATH:
 
 ```bash
 npm run build-cli
-cp dist/cli.mjs /usr/local/bin/mcpuppet-cli
+cp dist/mcpuppet-cli /usr/local/bin/
 ```
 
 `dist/cli.mjs` is a self-contained file with no external dependencies — only Node.js is required to run it.

@@ -20,8 +20,6 @@ import { Stage } from '../types.ts';
 import { logger } from '../util/log.ts';
 
 export interface FetchUrlResult {
-  url: string;
-  title: string;
   contentMarkdown: string;
   warnings: string[];
 }
@@ -46,33 +44,31 @@ export async function fetchUrl(page: Page, url: string, sessionId?: string): Pro
     logContext: { url },
   });
 
-  try {
-    const markdown = result.markdown ?? '';
+  const markdown = result.markdown ?? '';
 
-    const response = {
+  const response = {
+    contentMarkdown: markdown,
+    warnings: result.warnings,
+  };
+
+  logger.info(
+    {
       url: result.url ?? url,
-      title: result.title ?? '',
-      contentMarkdown: markdown,
-      warnings: result.warnings,
-    };
+      durationMs: Date.now() - started,
+      markdownLength: markdown.length,
+      warnings: response.warnings.length,
+    },
+    'Fetch URL completed',
+  );
 
-    logger.info(
-      {
-        url: response.url,
-        durationMs: Date.now() - started,
-        markdownLength: markdown.length,
-        warnings: response.warnings.length,
-      },
-      'Fetch URL completed',
-    );
-    return response;
-  } finally {
-    if (result.cleanups) {
-      for (const cleanup of result.cleanups) {
-        await cleanup();
-      }
+  // Run cleanups (remove event listeners etc.)
+  if (result.cleanups) {
+    for (const cleanup of result.cleanups) {
+      cleanup();
     }
   }
+
+  return response;
 }
 
 export function register(server: McpServer, connectionManager: ConnectionManager): void {
@@ -83,6 +79,7 @@ export function register(server: McpServer, connectionManager: ConnectionManager
       inputSchema: z.object({
         url: z.url(),
       }),
+
     },
     async ({ url }, extra) => {
       const connectionId = extra.sessionId;
@@ -105,8 +102,7 @@ export function register(server: McpServer, connectionManager: ConnectionManager
           'Tool fetch_url completed',
         );
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-          structuredContent: { ...result },
+          content: [{ type: 'text', text: result.contentMarkdown }],
         };
       } finally {
         release();

@@ -108,11 +108,10 @@ export class NavigateStage extends Stage {
         ]);
       }
 
-      const cleanup = async () => {
+      const cleanup = () => {
         page.off('response', onResponse);
         if (ssrf) {
           page.off('request', onRequest);
-          await page.setRequestInterception(false);
         }
       };
 
@@ -128,7 +127,6 @@ export class NavigateStage extends Stage {
       page.off('response', onResponse);
       if (ssrf) {
         page.off('request', onRequest);
-        await page.setRequestInterception(false);
       }
       throw error;
     }

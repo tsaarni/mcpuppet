@@ -37,6 +37,7 @@ interface SessionContext {
 }
 
 const sessions = new Map<string, SessionContext>();
+const sessionIdleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Tracks session IDs that were recently closed to prevent infinite recovery loops.
 // When a stale client keeps retrying with the same session ID, without this guard
@@ -44,12 +45,11 @@ const sessions = new Map<string, SessionContext>();
 const recentlyClosedSessions = new Set<string>();
 const CLOSED_SESSION_TTL_MS = 30000;
 
-// Tracks the active SSE response per session to avoid closing sessions
-// when stale retry requests close. Only the active stream should trigger close.
-const activeSSEStreams = new Map<string, ServerResponse>();
 const RECENTLY_CLOSED_SESSION_LIMIT = 1000;
 
 function markSessionClosed(sessionId: string): void {
+  const idleTimer = sessionIdleTimers.get(sessionId);
+  if (idleTimer) { clearTimeout(idleTimer); sessionIdleTimers.delete(sessionId); }
   if (recentlyClosedSessions.size >= RECENTLY_CLOSED_SESSION_LIMIT) {
     recentlyClosedSessions.delete(recentlyClosedSessions.values().next().value!);
   }
@@ -61,6 +61,23 @@ function markSessionClosed(sessionId: string): void {
 // which fires onclose again, causing infinite recursion without this guard.
 const closingSessions = new Set<string>();
 const CLOSING_SESSION_TIMEOUT_MS = 30_000;
+
+/** Resets the idle timer for a session. Closes the session if no activity within the timeout. */
+function touchSession(sessionId: string): void {
+  const existing = sessionIdleTimers.get(sessionId);
+  if (existing) clearTimeout(existing);
+  if (config.sessionIdleTimeoutMs <= 0) return;
+  const timer = setTimeout(() => {
+    sessionIdleTimers.delete(sessionId);
+    const ctx = sessions.get(sessionId);
+    if (ctx && !closingSessions.has(sessionId)) {
+      logger.info({ sessionId }, 'Session idle timeout expired, closing');
+      void ctx.transport.close();
+    }
+  }, config.sessionIdleTimeoutMs);
+  timer.unref();
+  sessionIdleTimers.set(sessionId, timer);
+}
 
 const app = new Hono();
 
@@ -101,6 +118,14 @@ app.all('/mcp', async (c) => {
           );
         }
 
+        if (sessions.size >= config.maxConnections) {
+          logger.warn({ sessionId, sessions: sessions.size }, 'Rejecting recovery: max connections reached');
+          return c.json(
+            { jsonrpc: '2.0', error: { code: -32600, message: 'Server at capacity, please retry later' }, id: null },
+            503,
+          );
+        }
+
         logger.warn({ sessionId }, 'Unknown session (server may have restarted), recovering session transparently');
 
         const server = createMcpServer();
@@ -112,7 +137,6 @@ app.all('/mcp', async (c) => {
           if (closingSessions.has(sessionId)) return;
           closingSessions.add(sessionId);
           sessions.delete(sessionId);
-          activeSSEStreams.delete(sessionId);
           markSessionClosed(sessionId);
           connectionManager.onDisconnect(sessionId).catch((err) => {
             logger.error(
@@ -153,6 +177,7 @@ app.all('/mcp', async (c) => {
 
         sessions.set(sessionId, { server, transport });
         logger.info({ sessionId, sessions: sessions.size }, 'MCP session recovered');
+        touchSession(sessionId);
 
         await transport.handleRequest(req, res);
         sealResponse();
@@ -161,27 +186,8 @@ app.all('/mcp', async (c) => {
 
       logger.debug({ sessionId }, 'Routing to existing transport');
 
-      // When the client drops the SSE stream (GET), treat it as session end.
-      // Only track ONE active SSE stream per session to avoid stale retries closing the session.
-      if (c.req.method === 'GET') {
-        const existingStream = activeSSEStreams.get(sessionId);
-        if (existingStream && !existingStream.writableEnded) {
-          // There's already an active SSE stream; this is likely a stale retry.
-          // Don't set up the close handler — let this request be handled but
-          // don't let it trigger session teardown.
-          logger.debug({ sessionId }, 'Ignoring duplicate SSE stream (active stream exists)');
-        } else {
-          activeSSEStreams.set(sessionId, res);
-          res.on('close', () => {
-            // Only close if this is still the active stream for this session
-            if (activeSSEStreams.get(sessionId) === res && !closingSessions.has(sessionId)) {
-              activeSSEStreams.delete(sessionId);
-              logger.info({ sessionId }, 'SSE stream closed by client, closing session');
-              void existing.transport.close();
-            }
-          });
-        }
-      }
+      // Session lifetime is NOT tied to SSE stream — clients may reconnect freely.
+      touchSession(sessionId);
 
       await existing.transport.handleRequest(req, res);
       sealResponse();
@@ -194,6 +200,7 @@ app.all('/mcp', async (c) => {
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (newSessionId) => {
         sessions.set(newSessionId, { server, transport });
+        touchSession(newSessionId);
         logger.info({ sessionId: newSessionId, sessions: sessions.size }, 'MCP session initialized');
       },
     });
@@ -204,7 +211,6 @@ app.all('/mcp', async (c) => {
         if (closingSessions.has(closedSessionId)) return;
         closingSessions.add(closedSessionId);
         sessions.delete(closedSessionId);
-        activeSSEStreams.delete(closedSessionId);
         markSessionClosed(closedSessionId);
         connectionManager.onDisconnect(closedSessionId).catch((err) => {
           logger.error(

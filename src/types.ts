@@ -16,8 +16,8 @@ export interface BaseFilterContext {
   sessionId?: string;
   /** Human-readable timestamp (msec precision) assigned at pipeline creation. */
   timestamp?: string;
-  /** Deferred cleanup functions to run after the pipeline completes (e.g., disabling request interception). */
-  cleanups?: (() => Promise<void>)[];
+  /** Deferred cleanup functions to run after the pipeline completes (e.g., removing event listeners). */
+  cleanups?: (() => void)[];
 }
 
 export type StageContext<T extends object = object> = BaseFilterContext & T;

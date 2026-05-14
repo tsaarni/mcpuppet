@@ -15,6 +15,7 @@ export const config = {
   settleDelayMs: envNumber('MCPUPPET_SETTLE_DELAY_MS', 1000),
   maxRedirects: envNumber('MCPUPPET_MAX_REDIRECTS', 5),
   searchBackend: process.env.MCPUPPET_SEARCH_BACKEND ?? 'google',
+  sessionIdleTimeoutMs: envNumber('MCPUPPET_SESSION_IDLE_TIMEOUT_MS', 3600000),
   sessionDebugDir: process.env.MCPUPPET_SESSION_DEBUG_DIR ?? '',
   executablePath: process.env.MCPUPPET_EXECUTABLE_PATH ?? '',  // If unset, Puppeteer's bundled browser is used.
   userDataDir: process.env.MCPUPPET_USER_DATA_DIR ?? './.browser-data',

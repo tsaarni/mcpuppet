@@ -8,13 +8,13 @@ import type { ParsedDocument, StageContext } from '../types.ts';
 function isInvisibleByStyle(style: string): boolean {
   const normalized = style.replaceAll(/\s+/g, '').toLowerCase();
   return (
-    normalized.includes('display:none') ||
+    /(?:^|;)display:none/.test(normalized) ||
     normalized.includes('visibility:hidden') ||
-    normalized.includes('opacity:0') ||
-    normalized.includes('width:0') ||
-    normalized.includes('height:0') ||
+    /(?:^|;)opacity:0(?:[;\s'"]|$)/.test(normalized) ||
+    /(?:^|;)width:0/.test(normalized) ||
+    /(?:^|;)height:0/.test(normalized) ||
     /font-size:0(px|em|%)?(?:[;'"]|$)/.test(normalized) ||
-    normalized.includes('color:transparent') ||
+    /(?:^|;)color:transparent/.test(normalized) ||
     normalized.includes('text-indent:-') ||
     normalized.includes('clip-path:inset(100')
   );

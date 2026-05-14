@@ -10,7 +10,8 @@
     "dev": "node --watch --strip-types --env-file=.env.example src/main.ts",
     "start": "node --strip-types src/main.ts",
     "cli": "node --strip-types src/cli.ts",
-    "build-cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=dist/cli.mjs && chmod +x dist/cli.mjs",
+    "build": "tsc --noEmit",
+    "build-cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=dist/mcpuppet-cli && chmod +x dist/mcpuppet-cli",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --strip-types --test test/**/*.test.ts"

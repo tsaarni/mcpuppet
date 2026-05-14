@@ -62,8 +62,7 @@ export function register(server: McpServer, connectionManager: ConnectionManager
           'Tool search completed',
         );
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-          structuredContent: { ...result },
+          content: [{ type: 'text', text: result.markdown }],
         };
       } finally {
         release();
