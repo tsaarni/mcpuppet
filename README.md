@@ -35,8 +35,8 @@ All settings are controlled by environment variables:
 | `MCPUPPET_HEADLESS` | `false` | Run browser headless |
 | `MCPUPPET_SLOW_MO` | `0` | ms delay per Puppeteer action (for human observation) |
 | `MCPUPPET_MAX_CONNECTIONS` | `10` | Max concurrent sessions |
-| `MCPUPPET_REQUEST_TIMEOUT_MS` | `30000` | Page request timeout in milliseconds |
-| `MCPUPPET_SETTLE_DELAY_MS` | `1000` | Delay after page load before extracting content (ms) |
+| `MCPUPPET_REQUEST_TIMEOUT_MS` | `30000` | Page request timeout (msec) |
+| `MCPUPPET_SETTLE_DELAY_MS` | `1000` | Maximum wait after page load for network to settle before extracting content (msec) |
 | `MCPUPPET_MAX_REDIRECTS` | `5` | Maximum number of HTTP redirects to follow |
 | `MCPUPPET_SEARCH_BACKEND` | `google` | Search provider (only `google` is supported) |
 | `MCPUPPET_LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |

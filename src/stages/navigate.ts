@@ -93,12 +93,12 @@ export class NavigateStage extends Stage {
     page.on('response', onResponse);
 
     try {
-      await page.goto(ctx.url, { waitUntil: 'domcontentloaded', timeout: config.requestTimeoutMs });
+      await page.goto(ctx.url, { waitUntil: 'load', timeout: config.requestTimeoutMs });
       if (settleDelayMs > 0) {
         // Race between fixed delay cap and network idle - whichever finishes first
         await Promise.race([
           sleep(settleDelayMs),
-          page.waitForNetworkIdle({ timeout: settleDelayMs, concurrency: 2 }).catch(() => {
+          page.waitForNetworkIdle({ timeout: settleDelayMs }).catch(() => {
             // Timeout is expected if network doesn't idle within settleDelayMs
           }),
         ]);
