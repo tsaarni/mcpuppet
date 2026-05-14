@@ -24,6 +24,14 @@ npm start [-- --env-file=<config-file>]
 
 The server starts on `http://127.0.0.1:5420` by default.
 
+To build self-contained scripts (no `node_modules` needed at runtime):
+
+```bash
+npm run build
+```
+
+The output scripts `dist/mcpuppet-server` and `dist/mcpuppet-cli` can be run directly or copied to any directory on your PATH.
+
 ## Configuration
 
 All settings are controlled by environment variables:
@@ -71,19 +79,9 @@ Edit `~/.kiro/agents/<agent>.json` (agent-specific) or `~/.kiro/settings/mcp.jso
 
 ## Using via agent skills (without MCP)
 
-For environments without MCP support, agents can invoke mcpuppet via the CLI client [`src/cli.ts`](src/cli.ts).
-It acts as an MCP client that connects to the local server.
+In environments without MCP support, agents can use the CLI client `mcpuppet-cli` ([`src/cli.ts`](src/cli.ts)) to communicate with the server.
 
-Build the standalone CLI binary and copy it to your PATH:
-
-```bash
-npm run build-cli
-cp -p dist/mcpuppet-cli /usr/local/bin/
-```
-
-`dist/cli.mjs` is a self-contained file with no external dependencies — only Node.js is required to run it.
-
-Then use a skill file to guide the agent to call the CLI:
+Include instructions like the following in a skill file to tell the agent how to use the CLI:
 
 ```markdown
 ---

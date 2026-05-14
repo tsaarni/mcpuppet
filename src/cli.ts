@@ -106,7 +106,16 @@ async function callTool(session: string, tool: string, args: object): Promise<st
 const [cmd, ...rest] = args;
 
 if (!cmd || !["fetch", "search"].includes(cmd)) {
-  process.stderr.write("Usage: mcpuppet-cli fetch <url>\n       mcpuppet-cli search <query>\n");
+  process.stderr.write(`Usage: mcpuppet-cli [--session-file=<path>] fetch <url>
+       mcpuppet-cli [--session-file=<path>] search <query>
+
+Options:
+  --session-file=<path>  Path to session ID file (overrides default platform path)
+
+Environment variables:
+  MCPUPPET_URL           MCP server URL (default: http://127.0.0.1:5420/mcp)
+  MCPUPPET_SESSION_FILE  Path to session ID file (overrides default platform path)
+`);
   process.exit(1);
 }
 

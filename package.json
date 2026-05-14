@@ -3,17 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "mcpuppet-cli": "./dist/cli.mjs"
+    "mcpuppet-cli": "./dist/mcpuppet-cli"
   },
   "type": "module",
   "scripts": {
     "dev": "node --watch --strip-types --env-file=.env.example src/main.ts",
     "start": "node --strip-types src/main.ts",
     "cli": "node --strip-types src/cli.ts",
-    "build": "tsc --noEmit",
-    "build-cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=dist/mcpuppet-cli && chmod +x dist/mcpuppet-cli",
-    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node\nimport{createRequire}from\"module\";const require=createRequire(import.meta.url);' --outfile=dist/mcpuppet-server && esbuild src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=dist/mcpuppet-cli && chmod +x dist/mcpuppet-server dist/mcpuppet-cli",
+    "lint": "eslint .",
     "test": "node --strip-types --test test/**/*.test.ts"
   },
   "dependencies": {

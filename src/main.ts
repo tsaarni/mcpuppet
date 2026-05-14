@@ -1,5 +1,31 @@
 // Entry point: sets up the MCP server over HTTP, registers the fetch_url and search tools,
 // and manages MCP session lifecycle (create, route, close).
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  process.stdout.write(`Usage: mcpuppet-server [--env-file=<path>]
+
+Options:
+  --env-file=<path>  Load environment variables from file (Node.js flag)
+
+Environment variables:
+  MCPUPPET_HOST                Bind address (default: 127.0.0.1)
+  MCPUPPET_PORT                HTTP port (default: 5420)
+  MCPUPPET_HEADLESS            Run browser headless (default: false)
+  MCPUPPET_SLOW_MO             ms delay per Puppeteer action (default: 0)
+  MCPUPPET_MAX_CONNECTIONS     Max concurrent sessions (default: 10)
+  MCPUPPET_REQUEST_TIMEOUT_MS  Page request timeout in ms (default: 30000)
+  MCPUPPET_SETTLE_DELAY_MS     Max wait after load for network settle in ms (default: 1000)
+  MCPUPPET_MAX_REDIRECTS       Max HTTP redirects to follow (default: 5)
+  MCPUPPET_SEARCH_BACKEND      Search provider (default: google)
+  MCPUPPET_LOG_LEVEL           Log verbosity: debug, info, warn, error (default: info)
+  MCPUPPET_EXECUTABLE_PATH     Path to Chrome/Chromium (uses bundled if empty)
+  MCPUPPET_USER_DATA_DIR       Chrome profile directory (default: ./.browser-data)
+  MCPUPPET_SESSION_DEBUG_DIR   Directory for session debug dumps (disabled if empty)
+  MCPUPPET_AUTH_TOKEN          Bearer token for authentication (unauthenticated if unset)
+`);
+  process.exit(0);
+}
+
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 
