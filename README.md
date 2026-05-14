@@ -18,8 +18,8 @@ Content is cleaned before being returned: hidden elements and HTML comments are 
 ## Quick start
 
 ```bash
-npm install  # to install dependencies
-npm start [-- --env-file=<config-file>]
+pnpm install  # to install dependencies
+pnpm start [-- --env-file=<config-file>]
 ```
 
 The server starts on `http://127.0.0.1:5420` by default.
@@ -27,7 +27,7 @@ The server starts on `http://127.0.0.1:5420` by default.
 To build self-contained scripts (no `node_modules` needed at runtime):
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 The output scripts `dist/mcpuppet-server` and `dist/mcpuppet-cli` can be run directly or copied to any directory on your PATH.
