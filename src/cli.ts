@@ -1,5 +1,5 @@
 // CLI client for the mcpuppet MCP server. Provides `fetch` and `search` commands
-// that connect to the server, execute a tool call, and close the session.
+// that connect to the server and execute a tool call.
 //
 // Environment variables:
 //
@@ -25,6 +25,8 @@ while (args.length && args[0].startsWith("--session-file")) {
 function sessionFilePath(): string {
   if (sessionFileOverride) return sessionFileOverride;
   const home = homedir();
+  // macOS: ~/Library/Application Support/mcpuppet-cli/mcp-session-id
+  // Linux: ~/.local/state/mcpuppet-cli/mcp-session-id (or $XDG_STATE_HOME/mcpuppet-cli/mcp-session-id)
   const dir = platform() === "darwin"
     ? join(home, "Library", "Application Support", "mcpuppet-cli")
     : join(process.env.XDG_STATE_HOME ?? join(home, ".local", "state"), "mcpuppet-cli");
