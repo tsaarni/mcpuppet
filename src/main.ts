@@ -37,6 +37,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { BrowserManager } from './browser-manager.ts';
 import { ConnectionManager } from './connection-manager.ts';
 import { config } from './config.ts';
+import { DuckDuckGoSearchBackend } from './search/duckduckgo-search.ts';
 import { GoogleSearchBackend } from './search/google-search.ts';
 import { registerSearchBackend, resolveSearchBackend } from './search/registry.ts';
 import { register as registerFetchUrl } from './tools/fetch-url.ts';
@@ -46,6 +47,7 @@ import { logger } from './util/log.ts';
 const browserManager = new BrowserManager();
 const connectionManager = new ConnectionManager(browserManager);
 registerSearchBackend(new GoogleSearchBackend());
+registerSearchBackend(new DuckDuckGoSearchBackend());
 resolveSearchBackend(config.searchBackend); // fail fast if SEARCH_BACKEND is not registered
 
 function createMcpServer(): McpServer {

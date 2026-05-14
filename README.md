@@ -19,7 +19,7 @@ Content is cleaned before being returned: hidden elements and HTML comments are 
 
 ```bash
 pnpm install  # to install dependencies
-pnpm start [-- --env-file=<config-file>]
+pnpm start [--env-file=<config-file>]
 ```
 
 The server starts on `http://127.0.0.1:5420` by default.
@@ -46,7 +46,7 @@ All settings are controlled by environment variables:
 | `MCPUPPET_REQUEST_TIMEOUT_MS` | `30000` | Page request timeout (msec) |
 | `MCPUPPET_SETTLE_DELAY_MS` | `1000` | Maximum wait after page load for network to settle before extracting content (msec) |
 | `MCPUPPET_MAX_REDIRECTS` | `5` | Maximum number of HTTP redirects to follow |
-| `MCPUPPET_SEARCH_BACKEND` | `google` | Search provider (only `google` is supported) |
+| `MCPUPPET_SEARCH_BACKEND` | `google` | Search provider (`google`, `duckduckgo`) |
 | `MCPUPPET_LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
 | `MCPUPPET_EXECUTABLE_PATH` | _(empty)_ | Path to Chrome/Chromium executable (uses Puppeteer's bundled version if empty) |
 | `MCPUPPET_USER_DATA_DIR` | `./.browser-data` | Chrome/Chromium profile (persists cookies across restarts) |
