@@ -3,17 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "mcpuppet-cli": "./dist/src/cli.js"
+    "mcpuppet-cli": "./dist/cli.mjs"
   },
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file=.env.example src/main.ts",
-    "build": "tsc",
-    "postbuild": "chmod +x dist/src/cli.js",
-    "start": "node dist/src/main.js",
+    "dev": "node --watch --strip-types --env-file=.env.example src/main.ts",
+    "start": "node --strip-types src/main.ts",
+    "cli": "node --strip-types src/cli.ts",
+    "build-cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=dist/cli.mjs && chmod +x dist/cli.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "test": "node --strip-types --test test/**/*.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.2",
@@ -32,8 +32,8 @@
     "@types/mozilla__readability": "^0.4.2",
     "@types/node": "^25.7.0",
     "@types/turndown": "^5.0.6",
+    "esbuild": "^0.28.0",
     "eslint": "^10.3.0",
-    "tsx": "^4.21.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.3"
   }

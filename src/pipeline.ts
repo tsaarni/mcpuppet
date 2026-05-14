@@ -11,6 +11,13 @@ interface RunPipelineOptions {
   logContext?: Record<string, unknown>;
 }
 
+function formatLocalTimestamp(date: Date): string {
+  const pad2 = (value: number) => value.toString().padStart(2, '0');
+  const pad3 = (value: number) => value.toString().padStart(3, '0');
+
+  return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}-${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
+}
+
 export async function runPipeline<T extends object = Record<string, never>>(
   ctx: StageContext<T>,
   pipeline: Pipeline<T>,
@@ -19,18 +26,7 @@ export async function runPipeline<T extends object = Record<string, never>>(
   const pipelineName = options.name ?? 'pipeline';
 
   // Assign a human-readable timestamp with msec precision at pipeline creation.
-  const now = new Date();
-  const timestamp =
-    ctx.timestamp ??
-    now.getFullYear().toString() +
-      (now.getMonth() + 1).toString().padStart(2, '0') +
-      now.getDate().toString().padStart(2, '0') +
-      '-' +
-      now.getHours().toString().padStart(2, '0') +
-      now.getMinutes().toString().padStart(2, '0') +
-      now.getSeconds().toString().padStart(2, '0') +
-      '.' +
-      now.getMilliseconds().toString().padStart(3, '0');
+  const timestamp = ctx.timestamp ?? formatLocalTimestamp(new Date());
   let current = { ...ctx, timestamp } as StageContext<T>;
 
   const stageSnapshots: { stage: string; html?: string }[] = [];

@@ -1,22 +1,22 @@
 // Implements the fetch_url tool: navigates to a URL with SSRF protection, extracts article content via
-// Readability, converts it to paginated Markdown, and wraps it in an untrusted-content fence.
+// Readability, converts it to Markdown, and wraps it in an untrusted-content fence.
 import type { Page } from 'puppeteer';
 import { z } from 'zod';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { config } from '../config.ts';
-import { sanitizeAndCleanStage } from '../stages/sanitize-and-clean.ts';
-import { fenceExternalContent } from '../stages/content-fence.ts';
-import { cookieConsentStage } from '../stages/cookie-consent.ts';
-import { createNavigateStage } from '../stages/navigate.ts';
-import { readabilityStage } from '../stages/readability.ts';
-import { redirectGuardStage } from '../stages/redirect-guard.ts';
-import { toMarkdownStage } from '../stages/to-markdown.ts';
-import { urlPolicyStage } from '../stages/url-policy.ts';
+import { SanitizeAndCleanStage } from '../stages/sanitize-and-clean.ts';
+import { ContentFenceStage } from '../stages/content-fence.ts';
+import { CookieConsentStage } from '../stages/cookie-consent.ts';
+import { NavigateStage } from '../stages/navigate.ts';
+import { ReadabilityStage } from '../stages/readability.ts';
+import { RedirectGuardStage } from '../stages/redirect-guard.ts';
+import { ToMarkdownStage } from '../stages/to-markdown.ts';
+import { UrlPolicyStage } from '../stages/url-policy.ts';
 import { runPipeline } from '../pipeline.ts';
 import type { ConnectionManager } from '../connection-manager.ts';
-import type { Stage } from '../types.ts';
+import { Stage } from '../types.ts';
 import { logger } from '../util/log.ts';
 
 export interface FetchUrlResult {
@@ -31,14 +31,14 @@ export async function fetchUrl(page: Page, url: string, sessionId?: string): Pro
   logger.info({ url }, 'Fetching URL');
 
   const pipeline: Stage[] = [
-    urlPolicyStage,
-    createNavigateStage({ ssrf: true, settleDelayMs: config.settleDelayMs }),
-    redirectGuardStage,
-    cookieConsentStage,
-    sanitizeAndCleanStage,
-    readabilityStage,
-    toMarkdownStage,
-    // contentFenceStage excluded: fencing is applied per page window below.
+    new UrlPolicyStage(),
+    new NavigateStage({ ssrf: true, settleDelayMs: config.settleDelayMs }),
+    new RedirectGuardStage(),
+    new CookieConsentStage(),
+    new SanitizeAndCleanStage(),
+    new ReadabilityStage(),
+    new ToMarkdownStage(),
+    new ContentFenceStage(),
   ];
 
   const result = await runPipeline({ url, page, warnings: [], sessionId }, pipeline, {
@@ -52,7 +52,7 @@ export async function fetchUrl(page: Page, url: string, sessionId?: string): Pro
     const response = {
       url: result.url ?? url,
       title: result.title ?? '',
-      contentMarkdown: fenceExternalContent(result.url ?? url, markdown),
+      contentMarkdown: markdown,
       warnings: result.warnings,
     };
 
@@ -81,7 +81,7 @@ export function register(server: McpServer, connectionManager: ConnectionManager
     {
       description: 'Navigate to URL and return extracted markdown content.',
       inputSchema: z.object({
-        url: z.string().url(),
+        url: z.url(),
       }),
     },
     async ({ url }, extra) => {

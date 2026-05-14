@@ -1,7 +1,8 @@
 // Stage that converts HTML to Markdown using Turndown, with custom rules for links and image alt text.
 import TurndownService from 'turndown';
 
-import type { Stage } from '../types.ts';
+import { Stage } from '../types.ts';
+import type { StageContext } from '../types.ts';
 
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
 
@@ -30,16 +31,15 @@ turndown.addRule('images-with-substantial-alt', {
   },
 });
 
-export const toMarkdownStage: Stage = {
-  name: 'to-markdown',
-  execute(ctx) {
+export class ToMarkdownStage extends Stage {
+  execute(ctx: StageContext): StageContext {
     if (!ctx.html) {
       throw new Error('HTML is required for markdown conversion');
     }
 
-    return Promise.resolve({
+    return {
       ...ctx,
       markdown: turndown.turndown(ctx.html).trim(),
-    });
-  },
-};
+    };
+  }
+}

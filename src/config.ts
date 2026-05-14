@@ -1,26 +1,11 @@
 // Reads all runtime configuration from environment variables and exports a single typed config object.
-function envNumber(name: string, fallback: number): number {
-  const value = process.env[name];
-  if (!value) {
-    return fallback;
-  }
+const envNumber = (name: string, fallback: number): number => {
+  const parsed = Number(process.env[name]);
+  return process.env[name] && !Number.isNaN(parsed) ? parsed : fallback;
+};
 
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return fallback;
-  }
-
-  return parsed;
-}
-
-function envBoolean(name: string, fallback: boolean): boolean {
-  const value = process.env[name];
-  if (!value) {
-    return fallback;
-  }
-
-  return value.toLowerCase() === 'true';
-}
+const envBoolean = (name: string, fallback: boolean): boolean =>
+  process.env[name] ? process.env[name].toLowerCase() === 'true' : fallback;
 
 export const config = {
   headless: envBoolean('MCPUPPET_HEADLESS', false),

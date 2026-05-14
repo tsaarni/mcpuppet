@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-//
 // CLI client for the mcpuppet MCP server. Provides `fetch` and `search` commands
 // that connect to the server, execute a tool call, and close the session.
 //

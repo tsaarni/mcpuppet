@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { runPipeline } from '../src/pipeline.ts';
-import { contentFenceStage } from '../src/stages/content-fence.ts';
-import { redirectGuardStage } from '../src/stages/redirect-guard.ts';
-import { sanitizeAndCleanStage } from '../src/stages/sanitize-and-clean.ts';
+import { ContentFenceStage } from '../src/stages/content-fence.ts';
+import { RedirectGuardStage } from '../src/stages/redirect-guard.ts';
+import { SanitizeAndCleanStage } from '../src/stages/sanitize-and-clean.ts';
 import { validateUrlPolicy, extractIPv4Compatible } from '../src/stages/url-policy.ts';
 import { shouldEnforcePolicy } from '../src/stages/navigate.ts';
 import { config } from '../src/config.ts';
-import type { Stage } from '../src/types.ts';
+import { Stage } from '../src/types.ts';
+import type { StageContext } from '../src/types.ts';
 
 void test('shouldEnforcePolicy enforces for navigation and http/https sub-resources only', () => {
   // Navigation always enforced regardless of scheme.
@@ -86,8 +87,9 @@ void test('extractIPv4Compatible – dotted and hex forms', () => {
 });
 
 
-void test('redirect-guard rejects when redirect count exceeds limit', async () => {
-  await assert.rejects(
+void test('redirect-guard rejects when redirect count exceeds limit', () => {
+  const redirectGuardStage = new RedirectGuardStage();
+  assert.throws(
     () =>
       redirectGuardStage.execute({
         url: 'https://example.com',
@@ -98,8 +100,9 @@ void test('redirect-guard rejects when redirect count exceeds limit', async () =
   );
 });
 
-void test('redirect-guard rejects redirect to private IP', async () => {
-  await assert.rejects(
+void test('redirect-guard rejects redirect to private IP', () => {
+  const redirectGuardStage = new RedirectGuardStage();
+  assert.throws(
     () =>
       redirectGuardStage.execute({
         url: 'http://192.168.1.1/secret',
@@ -110,8 +113,9 @@ void test('redirect-guard rejects redirect to private IP', async () => {
   );
 });
 
-void test('content-fence wraps markdown correctly', async () => {
-  const out = await contentFenceStage.execute({
+void test('content-fence wraps markdown correctly', () => {
+  const contentFenceStage = new ContentFenceStage();
+  const out = contentFenceStage.execute({
     url: 'https://example.com',
     markdown: 'content',
     warnings: [],
@@ -134,19 +138,19 @@ void test('content-fence wraps markdown correctly', async () => {
 });
 
 void test('pipeline composes stages', async () => {
+  class StageOne extends Stage {
+    execute(ctx: StageContext): Promise<StageContext> {
+      return Promise.resolve({ ...ctx, markdown: 'a' });
+    }
+  }
+  class StageTwo extends Stage {
+    execute(ctx: StageContext): Promise<StageContext> {
+      return Promise.resolve({ ...ctx, markdown: `${ctx.markdown}b` });
+    }
+  }
   const pipeline: Stage[] = [
-    {
-      name: 'one',
-      execute(ctx) {
-        return Promise.resolve({ ...ctx, markdown: 'a' });
-      },
-    },
-    {
-      name: 'two',
-      execute(ctx) {
-        return Promise.resolve({ ...ctx, markdown: `${ctx.markdown}b` });
-      },
-    },
+    new StageOne(),
+    new StageTwo(),
   ];
 
   const out = await runPipeline({ warnings: [] }, pipeline);
@@ -154,21 +158,22 @@ void test('pipeline composes stages', async () => {
 });
 
 void test('pipeline propagates stage error', async () => {
+  class ExplodeStage extends Stage {
+    execute(): never {
+      throw new Error('pipeline-failure');
+    }
+  }
   const pipeline: Stage[] = [
-    {
-      name: 'explode',
-      execute(): never {
-        throw new Error('pipeline-failure');
-      },
-    },
+    new ExplodeStage(),
   ];
 
   await assert.rejects(() => runPipeline({ warnings: [] }, pipeline), /pipeline-failure/);
 });
 
-void test('sanitize-and-clean combines both passes and provides document', async () => {
+void test('sanitize-and-clean combines both passes and provides document', () => {
+  const sanitizeAndCleanStage = new SanitizeAndCleanStage();
   const input = '<html><body><!--secret--><p aria-hidden="true">hidden</p><header>hdr</header><nav>n</nav><main>ok</main><script>bad()</script></body></html>';
-  const out = await sanitizeAndCleanStage.execute({ html: input, warnings: [] });
+  const out = sanitizeAndCleanStage.execute({ html: input, warnings: [] });
 
   assert.match(out.html ?? '', /ok/);
   assert.doesNotMatch(out.html ?? '', /secret/);

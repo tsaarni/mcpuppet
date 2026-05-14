@@ -1,6 +1,7 @@
 // Stage that wraps fetched Markdown in a nonce-tagged XML fence to signal untrusted external content to the LLM.
 import { randomBytes } from 'node:crypto';
-import type { Stage } from '../types.ts';
+import { Stage } from '../types.ts';
+import type { StageContext } from '../types.ts';
 
 function xmlEscape(value: string): string {
   return value
@@ -38,9 +39,8 @@ export function fenceExternalContent(sourceUrl: string, content: string): string
   ].join('\n');
 }
 
-export const contentFenceStage: Stage = {
-  name: 'content-fence',
-  execute(ctx) {
+export class ContentFenceStage extends Stage {
+  execute(ctx: StageContext): StageContext {
     if (!ctx.url) {
       throw new Error('URL is required for content fence');
     }
@@ -48,6 +48,6 @@ export const contentFenceStage: Stage = {
     const content = ctx.markdown ?? '';
     const fenced = fenceExternalContent(ctx.url, content);
 
-    return Promise.resolve({ ...ctx, markdown: fenced });
-  },
-};
+    return { ...ctx, markdown: fenced };
+  }
+}

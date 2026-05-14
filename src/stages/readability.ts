@@ -2,51 +2,51 @@
 import { parseHTML } from 'linkedom';
 import { Readability, isProbablyReaderable } from '@mozilla/readability';
 
-import type { Stage } from '../types.ts';
+import { Stage } from '../types.ts';
+import type { ParsedDocument, StageContext } from '../types.ts';
 
 const CONTENT_RATIO_THRESHOLD = 0.4;
 
-export const readabilityStage: Stage = {
-  name: 'readability',
-  execute(ctx) {
+export class ReadabilityStage extends Stage {
+  execute(ctx: StageContext): StageContext {
     if (!ctx.html || !ctx.url) {
-      return Promise.reject(new Error('HTML and URL are required for readability'));
+      throw new Error('HTML and URL are required for readability');
     }
 
-    const doc = ctx.document ?? parseHTML(ctx.html).document;
+    const doc = (ctx.document ?? parseHTML(ctx.html).document) as unknown as ParsedDocument;
 
-    if (!isProbablyReaderable(doc as unknown as Document)) {
+    if (!isProbablyReaderable(doc)) {
       ctx.warnings.push('Page is not article-like; skipping Readability extraction.');
-      return Promise.resolve(ctx);
+      return ctx;
     }
 
     let article: { content?: string | null; title?: string | null } | null;
     try {
-      article = new Readability(doc as unknown as Document, { keepClasses: false }).parse();
+      article = new Readability(doc, { keepClasses: false }).parse();
     } catch {
       ctx.warnings.push('Readability could not extract main content; using full HTML body.');
-      return Promise.resolve(ctx);
+      return ctx;
     }
 
     if (!article?.content) {
       ctx.warnings.push('Readability could not extract main content; using full HTML body.');
-      return Promise.resolve(ctx);
+      return ctx;
     }
 
     // Safety net: if Readability dropped too much content, fall back to sanitized HTML.
-    const inputText = (doc as unknown as { body?: { textContent?: string } }).body?.textContent ?? '';
+    const inputText = doc.body?.textContent ?? '';
     const outputDoc = parseHTML(article.content).document;
-    const outputText = (outputDoc as unknown as { body?: { textContent?: string } }).body?.textContent ?? '';
+    const outputText = outputDoc.body?.textContent ?? '';
     if (inputText.length > 0 && outputText.length / inputText.length < CONTENT_RATIO_THRESHOLD) {
       ctx.warnings.push('Readability dropped significant content; using full sanitized HTML.');
-      return Promise.resolve(ctx);
+      return ctx;
     }
 
-    return Promise.resolve({
+    return {
       ...ctx,
       html: article.content,
       title: article.title ?? ctx.title,
       document: undefined,
-    });
-  },
-};
+    };
+  }
+}

@@ -8,11 +8,11 @@ Hot reload mode (server):
 npm run dev
 ```
 
-The script loads `.env.example` automatically via `--env-file=.env.example`.
+The script loads [`.env.example`](.env.example) automatically.
 
 Set the MCP server URL in your agent config, or use the CLI client for quick dev testing:
 
 ```bash
-npx tsx src/cli.ts fetch <url>
-npx tsx src/cli.ts search <query>
+npm run cli -- fetch <url>
+npm run cli -- search <query>
 ```

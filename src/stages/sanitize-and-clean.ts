@@ -2,10 +2,11 @@
 // boilerplate selectors (clean), then passes the live document on the context.
 import { parseHTML } from 'linkedom';
 
-import type { Stage } from '../types.ts';
+import { Stage } from '../types.ts';
+import type { ParsedDocument, StageContext } from '../types.ts';
 
 function isInvisibleByStyle(style: string): boolean {
-  const normalized = style.replace(/\s+/g, '').toLowerCase();
+  const normalized = style.replaceAll(/\s+/g, '').toLowerCase();
   return (
     normalized.includes('display:none') ||
     normalized.includes('visibility:hidden') ||
@@ -44,34 +45,42 @@ const REMOVE_SELECTORS = [
 
 const AD_PATTERN = /(?:^|[\s_-])ad(?:[\s_-]|$)/i;
 
-export const sanitizeAndCleanStage: Stage = {
-  name: 'sanitize-and-clean',
-  execute(ctx) {
+export class SanitizeAndCleanStage extends Stage {
+  execute(ctx: StageContext): StageContext {
     if (!ctx.html) {
       throw new Error('HTML is required');
     }
 
-    const { document } = parseHTML(ctx.html);
+    const document = parseHTML(ctx.html).document as unknown as ParsedDocument;
 
     // --- Sanitize: remove comments ---
     const walker = document.createTreeWalker(document, 128);
     const comments: Comment[] = [];
-    let current = walker.nextNode() as Comment | null;
-    while (current) {
+    for (let current = walker.nextNode() as Comment | null; current; current = walker.nextNode() as Comment | null) {
       comments.push(current);
-      current = walker.nextNode() as Comment | null;
     }
     for (const comment of comments) {
       comment.remove();
     }
 
-    // --- Sanitize: remove hidden/invisible elements ---
+    // --- Sanitize + Clean: remove hidden/invisible and ad elements ---
     for (const element of Array.from(document.querySelectorAll('*'))) {
+      if (element.matches('html, body, main, article')) continue;
+
       const style = element.getAttribute('style') ?? '';
       const ariaHidden = element.getAttribute('aria-hidden');
       const hidden = element.getAttribute('hidden');
+      const cls = element.getAttribute('class') ?? '';
+      const id = element.getAttribute('id') ?? '';
 
-      if (ariaHidden === 'true' || hidden !== null || isInvisibleByStyle(style) || isZeroDim(element)) {
+      if (
+        ariaHidden === 'true' ||
+        hidden !== null ||
+        isInvisibleByStyle(style) ||
+        isZeroDim(element) ||
+        AD_PATTERN.test(cls) ||
+        AD_PATTERN.test(id)
+      ) {
         element.remove();
       }
     }
@@ -83,16 +92,6 @@ export const sanitizeAndCleanStage: Stage = {
       }
     }
 
-    // --- Clean: remove ad elements ---
-    for (const element of Array.from(document.querySelectorAll('*'))) {
-      if (element.matches('html, body, main, article')) continue;
-      const cls = element.getAttribute('class') ?? '';
-      const id = element.getAttribute('id') ?? '';
-      if (AD_PATTERN.test(cls) || AD_PATTERN.test(id)) {
-        element.remove();
-      }
-    }
-
-    return Promise.resolve({ ...ctx, html: (document as unknown as { toString(): string }).toString(), document });
-  },
-};
+    return { ...ctx, html: document.toString(), document };
+  }
+}

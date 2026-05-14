@@ -2,7 +2,8 @@
 // user to solve it manually in the browser window. After resolution, waits for
 // search result selectors to appear before handing control back.
 import { config } from '../config.ts';
-import type { Stage, StageContext } from '../types.ts';
+import { Stage } from '../types.ts';
+import type { StageContext } from '../types.ts';
 import { logger } from '../util/log.ts';
 
 async function isCaptchaPage(ctx: StageContext): Promise<boolean> {
@@ -16,8 +17,7 @@ async function isCaptchaPage(ctx: StageContext): Promise<boolean> {
   });
 }
 
-export const googleCaptchaStage: Stage = {
-  name: 'google-captcha',
+export class GoogleCaptchaStage extends Stage {
   async execute(ctx: StageContext): Promise<StageContext> {
     if (!ctx.page) {
       return ctx;
@@ -48,5 +48,5 @@ export const googleCaptchaStage: Stage = {
     logger.warn('Google CAPTCHA was not resolved within timeout');
     ctx.warnings.push('Google CAPTCHA was not resolved within timeout — results may be empty.');
     return ctx;
-  },
-};
+  }
+}

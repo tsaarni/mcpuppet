@@ -1,14 +1,14 @@
 # McPuppet
 
+> [!NOTE]
+> This codebase is LLM-generated.
+
 An MCP server that gives AI agents a local browser. It launches a Chrome/Chromium instance via Puppeteer and exposes tools to agents so they can navigate web pages and run searches.
 The browser runs in non-headless mode by default so you can see what the agents are doing.
 
 Each MCP session gets a dedicated browser tab. The tab is created on first use and closed automatically when the session ends. Multiple agents can connect simultaneously, each with their own tab.
 
 Content is cleaned before being returned: hidden elements and HTML comments are stripped, boilerplate is removed, Mozilla Readability extracts the main article, and the result is converted to Markdown for more effective token usage. The output is wrapped in a tagged fence so agents know it's untrusted external content.
-
-> [!NOTE]
-> This codebase is LLM-generated.
 
 ## Tools
 
@@ -18,9 +18,8 @@ Content is cleaned before being returned: hidden elements and HTML comments are 
 ## Quick start
 
 ```bash
-npm install
-npm run build
-node dist/src/main.js
+npm install  # to install dependencies
+npm start [-- --env-file=<config-file>]
 ```
 
 The server starts on `http://127.0.0.1:5420` by default.
@@ -39,19 +38,14 @@ All settings are controlled by environment variables:
 | `MCPUPPET_REQUEST_TIMEOUT_MS` | `30000` | Page request timeout in milliseconds |
 | `MCPUPPET_SETTLE_DELAY_MS` | `1000` | Delay after page load before extracting content (ms) |
 | `MCPUPPET_MAX_REDIRECTS` | `5` | Maximum number of HTTP redirects to follow |
-| `MCPUPPET_SEARCH_BACKEND` | `google` | Search provider |
+| `MCPUPPET_SEARCH_BACKEND` | `google` | Search provider (only `google` is supported) |
 | `MCPUPPET_LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
 | `MCPUPPET_EXECUTABLE_PATH` | _(empty)_ | Path to Chrome/Chromium executable (uses Puppeteer's bundled version if empty) |
-| `MCPUPPET_USER_DATA_DIR` | `./.browser-data` | Chromium profile (persists cookies across restarts) |
+| `MCPUPPET_USER_DATA_DIR` | `./.browser-data` | Chrome/Chromium profile (persists cookies across restarts) |
 | `MCPUPPET_SESSION_DEBUG_DIR` | _(empty)_ | Directory for session debug dumps (disabled when empty) |
 | `MCPUPPET_AUTH_TOKEN` | _(empty)_ | Bearer token required on all requests (unauthenticated if unset) |
 
-You can use environment variables directly or load them from a file:
-
-```bash
-node --env-file=.env dist/src/main.js
-```
-
+You can use environment variables directly or load them from an environment file.
 Refer to [`.env.example`](.env.example) as a template.
 
 > [!WARNING]
@@ -80,12 +74,14 @@ Edit `~/.kiro/agents/<agent>.json` (agent-specific) or `~/.kiro/settings/mcp.jso
 For environments without MCP support, agents can invoke mcpuppet via the CLI client [`src/cli.ts`](src/cli.ts).
 It acts as an MCP client that connects to the local server.
 
-Install the CLI on your PATH:
+Build the standalone CLI binary and copy it to your PATH:
 
 ```bash
-cp dist/src/cli.js /usr/local/bin/mcpuppet-cli
-chmod +x /usr/local/bin/mcpuppet-cli
+npm run build-cli
+cp dist/cli.mjs /usr/local/bin/mcpuppet-cli
 ```
+
+`dist/cli.mjs` is a self-contained file with no external dependencies — only Node.js is required to run it.
 
 Then use a skill file to guide the agent to call the CLI:
 

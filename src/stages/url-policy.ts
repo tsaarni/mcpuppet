@@ -1,7 +1,8 @@
 // URL safety policy: blocks private/loopback/internal IP ranges and non-HTTP(S) schemes to prevent SSRF attacks.
 import dns from 'node:dns/promises';
 
-import type { Stage } from '../types.ts';
+import { Stage } from '../types.ts';
+import type { StageContext } from '../types.ts';
 
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::', '::1']);
 const PRIVATE_RANGES = [
@@ -38,8 +39,8 @@ export function extractIPv4Compatible(host: string): string | null {
   // Compressed pure-hex: exactly 2 hex groups after :: means 6 implicit zero groups.
   const m2 = /^::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
   if (m2) {
-    const hi = parseInt(m2[1], 16);
-    const lo = parseInt(m2[2], 16);
+    const hi = Number.parseInt(m2[1], 16);
+    const lo = Number.parseInt(m2[2], 16);
     return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
   }
 
@@ -50,8 +51,8 @@ export function extractIPv4Compatible(host: string): string | null {
   // Fully-expanded hex: six zero-groups + two hex groups
   const m4 = /^(?:0+:){6}([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
   if (m4) {
-    const hi = parseInt(m4[1], 16);
-    const lo = parseInt(m4[2], 16);
+    const hi = Number.parseInt(m4[1], 16);
+    const lo = Number.parseInt(m4[2], 16);
     return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
   }
 
@@ -71,7 +72,7 @@ export function validateUrlPolicy(rawUrl: string): URL {
   }
 
   // Strip IPv6 brackets so checks work uniformly (URL.hostname keeps them).
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const host = parsed.hostname.toLowerCase().replaceAll(/^\[|\]$/g, '');
 
   if (BLOCKED_HOSTS.has(host) || BLOCKED_IPS.has(host)) {
     throw new Error(`Blocked host: ${host}`);
@@ -101,7 +102,7 @@ export function validateUrlPolicy(rawUrl: string): URL {
  * Should be called after validateUrlPolicy() and before navigation.
  */
 export async function resolveAndValidateDns(parsed: URL): Promise<void> {
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const host = parsed.hostname.toLowerCase().replaceAll(/^\[|\]$/g, '');
 
   // If the host is already an IP literal, skip DNS resolution (already validated by validateUrlPolicy).
   if (BLOCKED_HOSTS.has(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':')) {
@@ -129,9 +130,8 @@ export async function resolveAndValidateDns(parsed: URL): Promise<void> {
   }
 }
 
-export const urlPolicyStage: Stage = {
-  name: 'url-policy',
-  async execute(ctx) {
+export class UrlPolicyStage extends Stage {
+  async execute(ctx: StageContext): Promise<StageContext> {
     if (!ctx.url) {
       throw new Error('URL is required');
     }
@@ -139,5 +139,5 @@ export const urlPolicyStage: Stage = {
     const parsed = validateUrlPolicy(ctx.url);
     await resolveAndValidateDns(parsed);
     return { ...ctx, url: parsed.toString() };
-  },
-};
+  }
+}
