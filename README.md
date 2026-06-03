@@ -19,7 +19,7 @@ Content is cleaned before being returned: hidden elements and HTML comments are 
 
 ```bash
 pnpm install  # to install dependencies
-pnpm start [--env-file=<config-file>]
+pnpm start 
 ```
 
 The server starts on `http://127.0.0.1:5420` by default.
@@ -55,6 +55,12 @@ All settings are controlled by environment variables:
 
 You can use environment variables directly or load them from an environment file.
 Refer to [`.env.example`](.env.example) as a template.
+
+To use custom env file run
+
+```
+node --strip-types --env-file=mysettings.env src/main.ts
+```
 
 > [!WARNING]
 > When `MCPUPPET_AUTH_TOKEN` is not set the server accepts all requests without authentication. It is intended for localhost use only (`MCPUPPET_HOST=127.0.0.1`). Do not expose it on a network interface without setting a token.
