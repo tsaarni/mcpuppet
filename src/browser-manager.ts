@@ -20,9 +20,13 @@ const IGNORED_DEFAULT_ARGS = [
   '--disable-component-extensions-with-background-pages',
 ];
 
+const RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY_MS = 2000;
+
 export class BrowserManager {
   private browser: Browser | null = null;
   private intentionalShutdown = false;
+  private launchPromise: Promise<void> | null = null;
   private disconnectListeners: (() => void)[] = [];
 
   /** Register a listener called on unexpected browser disconnect (before relaunch). */
@@ -31,10 +35,13 @@ export class BrowserManager {
   }
 
   async launch(): Promise<void> {
-    if (this.browser) {
-      logger.debug('Browser launch skipped: already running');
-      return;
-    }
+    if (this.launchPromise) return this.launchPromise;
+    this.launchPromise = this.doLaunch().finally(() => { this.launchPromise = null; });
+    return this.launchPromise;
+  }
+
+  private async doLaunch(): Promise<void> {
+    if (this.browser) return;
 
     const executablePath = config.executablePath || undefined;
     logger.info({ headless: config.headless, userDataDir: config.userDataDir, executablePath }, 'Launching Chrome');
@@ -67,25 +74,58 @@ export class BrowserManager {
       ],
     });
 
-    this.intentionalShutdown = false;
-
-    this.browser.on('disconnected', () => {
-      this.browser = null;
-      if (!this.intentionalShutdown) {
-        logger.info('Chrome disconnected unexpectedly, restarting...');
-        for (const listener of this.disconnectListeners) listener();
-        this.launch().catch((err: unknown) => logger.error({ err }, 'Failed to restart browser'));
-      }
-    });
-
+    this.setupDisconnectHandler();
     logger.info('Chrome launched');
   }
 
-  async getPage(): Promise<Page> {
-    if (!this.browser) {
-      throw new Error('Browser is not launched');
+  private async reconnect(): Promise<void> {
+    const browserURL = this.browserURL();
+    if (!browserURL) {
+      await this.doLaunch();
+      return;
     }
 
+    for (let i = 1; i <= RECONNECT_ATTEMPTS; i++) {
+      await new Promise(r => setTimeout(r, RECONNECT_DELAY_MS));
+      try {
+        this.browser = await puppeteer.connect({ browserURL });
+        this.setupDisconnectHandler();
+        logger.info({ attempt: i }, 'Reconnected to Chrome');
+        return;
+      } catch {
+        logger.debug({ attempt: i, browserURL }, 'Reconnect attempt failed');
+      }
+    }
+
+    logger.warn('All reconnect attempts failed, launching new Chrome');
+    await this.doLaunch();
+  }
+
+  /** Read DevTools port from the user data dir. */
+  private browserURL(): string | null {
+    try {
+      const content = fs.readFileSync(path.join(config.userDataDir, 'DevToolsActivePort'), 'utf-8');
+      const port = parseInt(content.split('\n')[0], 10);
+      return port ? `http://127.0.0.1:${port}` : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private setupDisconnectHandler(): void {
+    this.intentionalShutdown = false;
+    this.browser!.on('disconnected', () => {
+      this.browser = null;
+      if (this.intentionalShutdown) return;
+      logger.info('Chrome disconnected, will attempt reconnect...');
+      for (const listener of this.disconnectListeners) listener();
+      if (this.launchPromise) return;
+      this.launchPromise = this.reconnect().finally(() => { this.launchPromise = null; });
+    });
+  }
+
+  async getPage(): Promise<Page> {
+    if (!this.browser) throw new Error('Browser is not launched');
     const page = await this.browser.newPage();
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
     logger.debug('Browser page created');
@@ -94,12 +134,10 @@ export class BrowserManager {
 
   async shutdown(): Promise<void> {
     this.intentionalShutdown = true;
-
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
     }
-
     logger.info('Chrome closed');
   }
 }
