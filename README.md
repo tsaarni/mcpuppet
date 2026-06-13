@@ -19,7 +19,7 @@ Content is cleaned before being returned: hidden elements and HTML comments are 
 
 ```bash
 pnpm install  # to install dependencies
-pnpm start 
+pnpm start
 ```
 
 The server starts on `http://127.0.0.1:5420` by default.
@@ -66,8 +66,7 @@ node --strip-types --env-file=mysettings.env src/main.ts
 > When `MCPUPPET_AUTH_TOKEN` is not set the server accepts all requests without authentication. It is intended for localhost use only (`MCPUPPET_HOST=127.0.0.1`). Do not expose it on a network interface without setting a token.
 
 > [!NOTE]
-> **Ubuntu 23.10+:** Puppeteer's bundled Chrome fails with `No usable sandbox!` due to [AppArmor user namespace restrictions](https://github.com/puppeteer/puppeteer/issues/12818). Fix: set `MCPUPPET_EXECUTABLE_PATH=/opt/google/chrome/chrome` to use system Chrome.
-
+> **Ubuntu 23.10+:** Puppeteer's bundled Chromium fails with `No usable sandbox!` due to [AppArmor user namespace restrictions](https://github.com/puppeteer/puppeteer/issues/12818). Mcpuppet automatically prefers `/opt/google/chrome/chrome` on Linux when available. You can also set `MCPUPPET_EXECUTABLE_PATH` to point to a Chrome/Chromium executable.
 
 ## Adding to Kiro as a remote MCP server
 
