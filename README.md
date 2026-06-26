@@ -1,8 +1,5 @@
 # McPuppet
 
-> [!NOTE]
-> This codebase is LLM-generated.
-
 An MCP server that gives AI agents a local browser. It launches a Chrome/Chromium instance via Puppeteer and exposes tools to agents so they can navigate web pages and run searches.
 The browser runs in non-headless mode by default so you can see what the agents are doing.
 
