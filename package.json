@@ -13,7 +13,9 @@
     "cli": "node --strip-types src/cli.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node\nimport{createRequire}from\"module\";const require=createRequire(import.meta.url);' --outfile=dist/mcpuppet-server && esbuild src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=dist/mcpuppet-cli && chmod +x dist/mcpuppet-server dist/mcpuppet-cli",
-    "lint": "eslint .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --fix .",
+    "format": "biome format --write .",
     "test": "node --strip-types --test test/**/*.test.ts"
   },
   "dependencies": {
@@ -23,19 +25,17 @@
     "async-mutex": "^0.5.0",
     "consola": "^3.4.2",
     "hono": "^4.12.18",
-    "linkedom": "^0.18.12",
+    "linkedom": "^0.18.13",
     "puppeteer": "^24.43.1",
     "turndown": "^7.2.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@biomejs/biome": "^2.5.4",
     "@types/mozilla__readability": "^0.4.2",
     "@types/node": "^25.7.0",
     "@types/turndown": "^5.0.6",
     "esbuild": "^0.28.0",
-    "eslint": "^10.3.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.3"
+    "typescript": "^6.0.3"
   }
 }

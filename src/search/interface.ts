@@ -1,5 +1,5 @@
 // Defines the SearchBackend interface and result types that all search provider implementations must satisfy.
-import type { Page } from 'puppeteer';
+import type { Page } from "puppeteer";
 
 export interface SearchResult {
   markdown: string;
@@ -11,5 +11,5 @@ export interface SearchResult {
 
 export interface SearchBackend {
   readonly name: string;
-  search(page: Page, query: string, sessionId?: string, pageNumber?: number): Promise<Omit<SearchResult, 'backend'>>;
+  search(page: Page, query: string, sessionId?: string): Promise<Omit<SearchResult, "backend">>;
 }

@@ -1,21 +1,21 @@
 // Page navigation stage with configurable SSRF request interception, redirect counting, and settle delay.
-import type { HTTPRequest, HTTPResponse } from 'puppeteer';
+import type { HTTPRequest, HTTPResponse } from "puppeteer";
 
-import { config } from '../config.ts';
-import { resolveAndValidateDns, validateUrlPolicy } from './url-policy.ts';
-import { Stage } from '../types.ts';
-import type { StageContext } from '../types.ts';
-import { logger } from '../util/log.ts';
+import { config } from "../config.ts";
+import type { StageContext } from "../types.ts";
+import { Stage } from "../types.ts";
+import { logger } from "../util/log.ts";
+import { resolveAndValidateDns, validateUrlPolicy } from "./url-policy.ts";
 
 /** Ignore errors that are expected when a request is already handled or the page is closed. */
 function ignoreRequestError(err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
   if (
-    !msg.includes('Request is already handled') &&
-    !msg.includes('Target closed') &&
-    !msg.includes('Request Interception is not enabled')
+    !msg.includes("Request is already handled") &&
+    !msg.includes("Target closed") &&
+    !msg.includes("Request Interception is not enabled")
   ) {
-    logger.warn({ err }, 'Unexpected error handling intercepted request');
+    logger.warn({ err }, "Unexpected error handling intercepted request");
   }
 }
 
@@ -28,7 +28,7 @@ export interface NavigateOptions {
 
 /** Returns true if URL policy must be enforced on this request (exported for unit tests). */
 export function shouldEnforcePolicy(isNavigation: boolean, url: string): boolean {
-  return isNavigation || url.startsWith('http://') || url.startsWith('https://');
+  return isNavigation || url.startsWith("http://") || url.startsWith("https://");
 }
 
 function sleep(ms: number): Promise<void> {
@@ -47,7 +47,7 @@ export class NavigateStage extends Stage {
 
   async execute(ctx: StageContext): Promise<StageContext> {
     if (!ctx.url || !ctx.page) {
-      throw new Error('URL and page are required for navigation');
+      throw new Error("URL and page are required for navigation");
     }
 
     const page = ctx.page;
@@ -78,9 +78,9 @@ export class NavigateStage extends Stage {
           } catch (policyErr) {
             // If policy validation failed, abort; if abort itself fails, log it.
             const msg = policyErr instanceof Error ? policyErr.message : String(policyErr);
-            const isRequestHandled = msg.includes('Request is already handled') || msg.includes('Target closed');
+            const isRequestHandled = msg.includes("Request is already handled") || msg.includes("Target closed");
             if (!isRequestHandled) {
-              await request.abort('blockedbyclient').catch(ignoreRequestError);
+              await request.abort("blockedbyclient").catch(ignoreRequestError);
             }
           }
         };
@@ -91,13 +91,13 @@ export class NavigateStage extends Stage {
     };
 
     if (ssrf) {
-      page.on('request', onRequest);
+      page.on("request", onRequest);
       await page.setRequestInterception(true);
     }
-    page.on('response', onResponse);
+    page.on("response", onResponse);
 
     try {
-      await page.goto(ctx.url, { waitUntil: 'load', timeout: config.requestTimeoutMs });
+      await page.goto(ctx.url, { waitUntil: "load", timeout: config.requestTimeoutMs });
       if (settleDelayMs > 0) {
         // Race between fixed delay cap and network idle - whichever finishes first
         await Promise.race([
@@ -109,9 +109,9 @@ export class NavigateStage extends Stage {
       }
 
       const cleanup = () => {
-        page.off('response', onResponse);
+        page.off("response", onResponse);
         if (ssrf) {
-          page.off('request', onRequest);
+          page.off("request", onRequest);
         }
       };
 
@@ -124,9 +124,9 @@ export class NavigateStage extends Stage {
         cleanups: [...(ctx.cleanups ?? []), cleanup],
       };
     } catch (error) {
-      page.off('response', onResponse);
+      page.off("response", onResponse);
       if (ssrf) {
-        page.off('request', onRequest);
+        page.off("request", onRequest);
       }
       throw error;
     }

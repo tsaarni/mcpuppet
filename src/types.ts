@@ -1,5 +1,5 @@
 // Core type definitions: StageContext (shared state passed between stages) and the Stage/Pipeline interfaces.
-import type { Page } from 'puppeteer';
+import type { Page } from "puppeteer";
 
 export type ParsedDocument = Document & { toString(): string };
 
@@ -26,8 +26,8 @@ export abstract class Stage<T extends object = object> {
   /** Stage name for logging. Derived from class name, override if needed. */
   get name(): string {
     return this.constructor.name
-      .replaceAll(/Stage$/g, '')
-      .replaceAll(/([a-z])([A-Z])/g, '$1-$2')
+      .replaceAll(/Stage$/g, "")
+      .replaceAll(/([a-z])([A-Z])/g, "$1-$2")
       .toLowerCase();
   }
 

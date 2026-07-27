@@ -1,8 +1,8 @@
 // Stage that rejects pages that exceeded the redirect limit and re-validates the final URL against the URL policy.
-import { config } from '../config.ts';
-import { Stage } from '../types.ts';
-import type { StageContext } from '../types.ts';
-import { validateUrlPolicy } from './url-policy.ts';
+import { config } from "../config.ts";
+import type { StageContext } from "../types.ts";
+import { Stage } from "../types.ts";
+import { validateUrlPolicy } from "./url-policy.ts";
 
 export class RedirectGuardStage extends Stage {
   execute(ctx: StageContext): StageContext {
@@ -12,7 +12,7 @@ export class RedirectGuardStage extends Stage {
     }
 
     if (!ctx.url) {
-      throw new Error('Missing final URL for redirect validation');
+      throw new Error("Missing final URL for redirect validation");
     }
 
     // Re-validate the final URL after redirects to prevent SSRF bypasses where an

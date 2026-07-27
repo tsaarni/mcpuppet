@@ -1,14 +1,12 @@
-import { existsSync } from 'node:fs';
-import { platform } from 'node:os';
+import { existsSync } from "node:fs";
+import { platform } from "node:os";
 
 const CANDIDATES: Record<string, string[]> = {
   // Ubuntu 23.10+: Puppeteer's bundled Chrome fails with "No usable sandbox!"
   // due to AppArmor user namespace restrictions.
   // https://github.com/puppeteer/puppeteer/issues/12818
   // Workaround: use system installed Chrome instead of bundled Chrome.
-  linux: [
-    '/opt/google/chrome/chrome',
-  ],
+  linux: ["/opt/google/chrome/chrome"],
 };
 
 /**
@@ -21,5 +19,5 @@ export function detectChromeExecutable(): string {
   for (const p of candidates) {
     if (existsSync(p)) return p;
   }
-  return '';
+  return "";
 }

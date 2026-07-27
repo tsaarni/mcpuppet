@@ -1,40 +1,39 @@
 // Stage that converts HTML to Markdown using Turndown, with custom rules for links and image alt text.
-import TurndownService from 'turndown';
+import TurndownService from "turndown";
+import type { StageContext } from "../types.ts";
+import { Stage } from "../types.ts";
 
-import { Stage } from '../types.ts';
-import type { StageContext } from '../types.ts';
+const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
 
-const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-
-turndown.addRule('simple-links', {
-  filter: 'a',
+turndown.addRule("simple-links", {
+  filter: "a",
   replacement(content, node) {
-    const href = (node as Element).getAttribute('href') ?? '';
+    const href = (node as Element).getAttribute("href") ?? "";
     const text = content.trim() || href;
     if (!href) {
       return text;
     }
     // Block-level content inside a link can't be wrapped in []() syntax.
     // Render the content as-is and append the URL as a proper link.
-    if (text.includes('\n')) {
+    if (text.includes("\n")) {
       return `\n\n${text}\n[${href}](${href})\n\n`;
     }
     return `[${text}](${href})`;
   },
 });
 
-turndown.addRule('images-with-substantial-alt', {
-  filter: 'img',
+turndown.addRule("images-with-substantial-alt", {
+  filter: "img",
   replacement(_content, node) {
-    const alt = ((node as Element).getAttribute('alt') ?? '').trim();
-    return alt.length >= 20 ? alt : '';
+    const alt = ((node as Element).getAttribute("alt") ?? "").trim();
+    return alt.length >= 20 ? alt : "";
   },
 });
 
 export class ToMarkdownStage extends Stage {
   execute(ctx: StageContext): StageContext {
     if (!ctx.html) {
-      throw new Error('HTML is required for markdown conversion');
+      throw new Error("HTML is required for markdown conversion");
     }
 
     return {

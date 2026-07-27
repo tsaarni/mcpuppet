@@ -1,19 +1,18 @@
 // URL safety policy: blocks private/loopback/internal IP ranges and non-HTTP(S) schemes to prevent SSRF attacks.
-import dns from 'node:dns/promises';
+import dns from "node:dns/promises";
+import type { StageContext } from "../types.ts";
+import { Stage } from "../types.ts";
 
-import { Stage } from '../types.ts';
-import type { StageContext } from '../types.ts';
-
-const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::', '::1']);
+const BLOCKED_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::", "::1"]);
 const PRIVATE_RANGES = [
   /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
   /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/,
   /^192\.168\.\d{1,3}\.\d{1,3}$/,
 ];
-const BLOCKED_IPS = new Set(['169.254.169.254']);
+const BLOCKED_IPS = new Set(["169.254.169.254"]);
 // IPv6 prefixes that resolve to private/internal space.
 // '::ffff:' covers IPv4-mapped (RFC 4291), 'fe80:' covers link-local, 'fc'/'fd' cover unique-local (RFC 4193).
-const BLOCKED_IPV6_PREFIXES = ['::ffff:', '::ffff:0:', 'fe80:', 'fc', 'fd'];
+const BLOCKED_IPV6_PREFIXES = ["::ffff:", "::ffff:0:", "fe80:", "fc", "fd"];
 
 function isBlockedIPv4(ip: string): boolean {
   return BLOCKED_HOSTS.has(ip) || BLOCKED_IPS.has(ip) || PRIVATE_RANGES.some((r) => r.test(ip));
@@ -67,12 +66,12 @@ export function validateUrlPolicy(rawUrl: string): URL {
     throw new Error(`Invalid URL: ${rawUrl}`);
   }
 
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
+  if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error(`Blocked URL scheme: ${parsed.protocol}`);
   }
 
   // Strip IPv6 brackets so checks work uniformly (URL.hostname keeps them).
-  const host = parsed.hostname.toLowerCase().replaceAll(/^\[|\]$/g, '');
+  const host = parsed.hostname.toLowerCase().replaceAll(/^\[|\]$/g, "");
 
   if (BLOCKED_HOSTS.has(host) || BLOCKED_IPS.has(host)) {
     throw new Error(`Blocked host: ${host}`);
@@ -102,10 +101,10 @@ export function validateUrlPolicy(rawUrl: string): URL {
  * Should be called after validateUrlPolicy() and before navigation.
  */
 export async function resolveAndValidateDns(parsed: URL): Promise<void> {
-  const host = parsed.hostname.toLowerCase().replaceAll(/^\[|\]$/g, '');
+  const host = parsed.hostname.toLowerCase().replaceAll(/^\[|\]$/g, "");
 
   // If the host is already an IP literal, skip DNS resolution (already validated by validateUrlPolicy).
-  if (BLOCKED_HOSTS.has(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':')) {
+  if (BLOCKED_HOSTS.has(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":")) {
     return;
   }
 
@@ -133,7 +132,7 @@ export async function resolveAndValidateDns(parsed: URL): Promise<void> {
 export class UrlPolicyStage extends Stage {
   async execute(ctx: StageContext): Promise<StageContext> {
     if (!ctx.url) {
-      throw new Error('URL is required');
+      throw new Error("URL is required");
     }
 
     const parsed = validateUrlPolicy(ctx.url);
