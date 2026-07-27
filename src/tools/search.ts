@@ -36,10 +36,10 @@ export function register(
   server.registerTool(
     "search",
     {
-      description: "Use this tool to fill gaps in your knowledge by searching the web for current, specific, or factual information that you cannot reliably answer from your training data alone.",
+      description: "Use this tool to fill gaps in your knowledge by searching the web for current, specific, or factual information that you cannot reliably answer from your training data alone. Keep the query short and simple using plain keywords only, no boolean operators (AND, OR).",
       inputSchema: z.object({
         query: z.string().min(1).describe(
-          "Search query. Keep it short and simple, use plain keywords, avoid AND/OR or complex syntax. Do not include too many terms."
+          "Search query."
         ),
       }),
     },
