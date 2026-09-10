@@ -86,7 +86,7 @@ function createTestServer() {
               sessionIdleTimers.delete(sessionId);
             }
             recentlyClosedSessions.add(sessionId);
-            setTimeout(() => recentlyClosedSessions.delete(sessionId), 5000);
+            setTimeout(() => recentlyClosedSessions.delete(sessionId), 5000).unref();
             void server.close().finally(() => closingSessions.delete(sessionId));
           };
           await server.connect(transport);
@@ -133,7 +133,7 @@ function createTestServer() {
             sessionIdleTimers.delete(closedId);
           }
           recentlyClosedSessions.add(closedId);
-          setTimeout(() => recentlyClosedSessions.delete(closedId), 5000);
+          setTimeout(() => recentlyClosedSessions.delete(closedId), 5000).unref();
           void server.close().finally(() => closingSessions.delete(closedId));
         }
       };

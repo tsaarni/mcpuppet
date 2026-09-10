@@ -4,7 +4,9 @@ import path from "node:path";
 
 import { config } from "./config.ts";
 import type { Pipeline, StageContext } from "./types.ts";
-import { logger } from "./util/log.ts";
+import { createLogger } from "./util/log.ts";
+
+const logger = createLogger("pipeline");
 
 interface RunPipelineOptions {
   name?: string;

@@ -4,7 +4,9 @@ import type { HTTPRequest, HTTPResponse } from "puppeteer";
 import { config } from "../config.ts";
 import type { StageContext } from "../types.ts";
 import { Stage } from "../types.ts";
-import { logger } from "../util/log.ts";
+import { createLogger } from "../util/log.ts";
+
+const logger = createLogger("navigate");
 import { resolveAndValidateDns, validateUrlPolicy } from "./url-policy.ts";
 
 /** Ignore errors that are expected when a request is already handled or the page is closed. */
@@ -15,7 +17,7 @@ function ignoreRequestError(err: unknown): void {
     !msg.includes("Target closed") &&
     !msg.includes("Request Interception is not enabled")
   ) {
-    logger.warn({ err }, "Unexpected error handling intercepted request");
+    logger.warn({ errorMessage: msg }, "Unexpected error handling intercepted request");
   }
 }
 

@@ -7,7 +7,9 @@ import { z } from "zod";
 import type { ConnectionManager } from "../connection-manager.ts";
 import type { SearchBackend, SearchResult } from "../search/interface.ts";
 import { fenceExternalContent } from "../stages/content-fence.ts";
-import { logger } from "../util/log.ts";
+import { createLogger } from "../util/log.ts";
+
+const logger = createLogger("search");
 
 export async function runSearch(
   page: Page,

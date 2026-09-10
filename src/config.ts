@@ -24,4 +24,5 @@ export const config = {
   port: envNumber("MCPUPPET_PORT", 5420),
   host: process.env.MCPUPPET_HOST ?? "127.0.0.1",
   authToken: process.env.MCPUPPET_AUTH_TOKEN ?? "",
+  devtoolsMcp: envBoolean("MCPUPPET_DEVTOOLS_MCP", true),
 } as const;

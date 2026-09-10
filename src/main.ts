@@ -22,6 +22,7 @@ Environment variables:
   MCPUPPET_USER_DATA_DIR       Chrome profile directory (default: ./.browser-data)
   MCPUPPET_SESSION_DEBUG_DIR   Directory for session debug dumps (disabled if empty)
   MCPUPPET_AUTH_TOKEN          Bearer token for authentication (unauthenticated if unset)
+  MCPUPPET_DEVTOOLS_MCP        Enable embedded chrome-devtools-mcp endpoint (default: true)
 `);
   process.exit(0);
 }
@@ -40,9 +41,12 @@ import { ConnectionManager } from "./connection-manager.ts";
 import { DuckDuckGoSearchBackend } from "./search/duckduckgo-search.ts";
 import { GoogleSearchBackend } from "./search/google-search.ts";
 import { registerSearchBackend, resolveSearchBackend } from "./search/registry.ts";
+import { handleDevToolsMcpRequest, initDevToolsMcpProxy, shutdownDevToolsMcpSessions } from "./devtools-mcp-proxy.ts";
 import { register as registerFetchUrl } from "./tools/fetch-url.ts";
 import { register as registerSearch } from "./tools/search.ts";
-import { logger } from "./util/log.ts";
+import { createLogger } from "./util/log.ts";
+
+const logger = createLogger("server");
 
 const browserManager = new BrowserManager();
 const connectionManager = new ConnectionManager(browserManager);
@@ -85,7 +89,7 @@ function markSessionClosed(sessionId: string): void {
     recentlyClosedSessions.delete(recentlyClosedSessions.values().next().value!);
   }
   recentlyClosedSessions.add(sessionId);
-  setTimeout(() => recentlyClosedSessions.delete(sessionId), CLOSED_SESSION_TTL_MS);
+  setTimeout(() => recentlyClosedSessions.delete(sessionId), CLOSED_SESSION_TTL_MS).unref();
 }
 
 // Guards against re-entrant onclose calls. server.close() triggers transport.close()
@@ -121,6 +125,11 @@ app.use("*", async (c, next) => {
   }
   await next();
 });
+
+// DevTools MCP proxy endpoint — embeds chrome-devtools-mcp as a streamable HTTP service.
+if (config.devtoolsMcp) {
+  app.all("/devtools-mcp", handleDevToolsMcpRequest);
+}
 
 app.all("/mcp", async (c) => {
   const req = (c.env as { incoming: IncomingMessage }).incoming;
@@ -160,7 +169,7 @@ app.all("/mcp", async (c) => {
           );
         }
 
-        logger.warn({ sessionId }, "Unknown session (server may have restarted), recovering session transparently");
+        logger.info({ sessionId }, "Reconnecting client to new MCP session");
 
         const server = createMcpServer();
         const transport = new StreamableHTTPServerTransport({
@@ -313,6 +322,7 @@ async function shutdown(): Promise<void> {
     sessions.delete(sessionId);
   }
 
+  await shutdownDevToolsMcpSessions();
   await browserManager.shutdown();
   process.exit(0);
 }
@@ -321,12 +331,18 @@ process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
 
 await browserManager.launch();
+if (config.devtoolsMcp) {
+  initDevToolsMcpProxy(browserManager);
+}
 serve({ fetch: app.fetch, hostname: config.host, port: config.port });
 logger.info(
   { host: config.host, port: config.port, searchBackend: config.searchBackend, maxConnections: config.maxConnections },
   "McPuppet startup complete",
 );
-logger.info(`McPuppet listening on http://${config.host}:${config.port}/mcp`);
+logger.info({ url: `http://${config.host}:${config.port}/mcp` }, "McPuppet listening");
+if (config.devtoolsMcp) {
+  logger.info({ url: `http://${config.host}:${config.port}/devtools-mcp` }, "DevTools MCP proxy listening");
+}
 if (!config.authToken) {
   logger.warn("No MCPUPPET_AUTH_TOKEN set — server is unauthenticated. Intended for localhost use only.");
 }

@@ -3,7 +3,9 @@
 
 import type { StageContext } from "../types.ts";
 import { Stage } from "../types.ts";
-import { logger } from "../util/log.ts";
+import { createLogger } from "../util/log.ts";
+
+const logger = createLogger("consent");
 import { dismissCookieConsent } from "./cookie-consent.browser.ts";
 
 export class CookieConsentStage extends Stage {
@@ -45,7 +47,7 @@ export class CookieConsentStage extends Stage {
     const result = await ctx.page.evaluate(dismissCookieConsent);
 
     if (result.dismissed) {
-      logger.info({ cmp: result.cmp }, `Dismissed cookie consent dialog (${result.cmp})`);
+      logger.info({ cmp: result.cmp }, "Dismissed cookie consent dialog");
       // Refresh HTML since DOM may have changed. The dismiss click may trigger a navigation,
       // which destroys the execution context; fall back to the existing HTML in that case.
       try {

@@ -4,7 +4,9 @@ import { Mutex, type MutexInterface, withTimeout } from "async-mutex";
 import type { Page } from "puppeteer";
 import type { BrowserManager } from "./browser-manager.ts";
 import { config } from "./config.ts";
-import { logger } from "./util/log.ts";
+import { createLogger } from "./util/log.ts";
+
+const logger = createLogger("connection");
 
 export interface ConnectionState {
   page: Page | null;

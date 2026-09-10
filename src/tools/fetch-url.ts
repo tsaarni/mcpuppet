@@ -17,7 +17,9 @@ import { SanitizeAndCleanStage } from "../stages/sanitize-and-clean.ts";
 import { ToMarkdownStage } from "../stages/to-markdown.ts";
 import { UrlPolicyStage } from "../stages/url-policy.ts";
 import type { Stage } from "../types.ts";
-import { logger } from "../util/log.ts";
+import { createLogger } from "../util/log.ts";
+
+const logger = createLogger("fetch");
 
 export interface FetchUrlResult {
   contentMarkdown: string;

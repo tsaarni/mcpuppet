@@ -1,6 +1,8 @@
 // Global registry for search backend plugins; backends are registered by name and resolved at request time.
 
-import { logger } from "../util/log.ts";
+import { createLogger } from "../util/log.ts";
+
+const logger = createLogger("search");
 import type { SearchBackend } from "./interface.ts";
 
 const registry = new Map<string, SearchBackend>();

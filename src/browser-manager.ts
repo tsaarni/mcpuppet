@@ -8,7 +8,9 @@ import type { Browser, Page } from "puppeteer";
 import puppeteer from "puppeteer";
 
 import { config } from "./config.ts";
-import { logger } from "./util/log.ts";
+import { createLogger } from "./util/log.ts";
+
+const logger = createLogger("browser");
 
 // Puppeteer default args that expose the browser as an automation tool and
 // are detectable by bot-detection systems.
@@ -82,6 +84,8 @@ export class BrowserManager {
         "--disable-session-crashed-bubble",
         "--hide-crash-restore-bubble",
         "--lang=en-US",
+        // Use ephemeral port for CDP — the actual port is read from DevToolsActivePort.
+        "--remote-debugging-port=0",
       ],
     });
 
@@ -108,12 +112,12 @@ export class BrowserManager {
       }
     }
 
-    logger.warn("All reconnect attempts failed, launching new Chrome");
+    logger.warn("Reconnect attempts exhausted, launching new Chrome");
     await this.doLaunch();
   }
 
-  /** Read DevTools port from the user data dir. */
-  private browserURL(): string | null {
+  /** Read DevTools HTTP URL from the DevToolsActivePort file in the user data dir. */
+  browserURL(): string | null {
     try {
       const content = fs.readFileSync(path.join(config.userDataDir, "DevToolsActivePort"), "utf-8");
       const port = parseInt(content.split("\n")[0], 10);
@@ -128,7 +132,7 @@ export class BrowserManager {
     this.browser?.on("disconnected", () => {
       this.browser = null;
       if (this.intentionalShutdown) return;
-      logger.info("Chrome disconnected, will attempt reconnect...");
+      logger.info("Chrome disconnected, attempting reconnect");
       for (const listener of this.disconnectListeners) listener();
       if (this.launchPromise) return;
       this.launchPromise = this.reconnect().finally(() => {

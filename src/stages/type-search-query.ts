@@ -3,7 +3,9 @@
 import { config } from "../config.ts";
 import type { StageContext } from "../types.ts";
 import { Stage } from "../types.ts";
-import { logger } from "../util/log.ts";
+import { createLogger } from "../util/log.ts";
+
+const logger = createLogger("search");
 
 export interface TypeSearchQueryOptions {
   selector: string;
