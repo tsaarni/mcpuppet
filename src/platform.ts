@@ -7,6 +7,10 @@ const CANDIDATES: Record<string, string[]> = {
   // https://github.com/puppeteer/puppeteer/issues/12818
   // Workaround: use system installed Chrome instead of bundled Chrome.
   linux: ["/opt/google/chrome/chrome"],
+  darwin: [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  ],
 };
 
 /**
