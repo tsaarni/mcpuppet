@@ -90,7 +90,7 @@ export class BrowserManager {
     });
 
     this.setupDisconnectHandler();
-    logger.info("Chrome launched");
+    logger.info({ executablePath: this.browser.process()?.spawnfile }, "Chrome launched");
   }
 
   private async reconnect(): Promise<void> {
