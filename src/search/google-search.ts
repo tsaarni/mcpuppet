@@ -1,5 +1,5 @@
-// Google search backend: navigates to the Google homepage, types the query
-// into the search box with human-like delays, and extracts results via a stage pipeline.
+// Google search backend: navigates to the Google homepage, enters the query,
+// and extracts results via a stage pipeline.
 import type { Page } from "puppeteer";
 import { runPipeline } from "../pipeline.ts";
 import { CookieConsentStage } from "../stages/cookie-consent.ts";

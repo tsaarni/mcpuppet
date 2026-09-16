@@ -1,5 +1,5 @@
-// DuckDuckGo search backend: navigates to the DuckDuckGo homepage, types the query
-// into the search box with human-like delays, and extracts results via a stage pipeline.
+// DuckDuckGo search backend: navigates to the DuckDuckGo homepage, enters the query,
+// and extracts results via a stage pipeline.
 import type { Page } from "puppeteer";
 import { runPipeline } from "../pipeline.ts";
 import { CookieConsentStage } from "../stages/cookie-consent.ts";
