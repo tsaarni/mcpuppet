@@ -6,11 +6,12 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Context } from "hono";
-
 // chrome-devtools-mcp exports its McpServer class from the package root.
 // It wraps the SDK McpServer internally and registers all DevTools tools.
 import { McpServer as DevToolsMcpServer } from "chrome-devtools-mcp";
+import { BrowserManager as DevToolsBrowserManager } from "chrome-devtools-mcp/build/src/BrowserManager.js";
+import { ServerConfig } from "chrome-devtools-mcp/build/src/config/ServerConfig.js";
+import type { Context } from "hono";
 
 import type { BrowserManager } from "./browser-manager.ts";
 import { config } from "./config.ts";
@@ -96,7 +97,7 @@ function wireOnClose(
   };
 }
 
-/** Build the serverArgs object that chrome-devtools-mcp McpServer.from() expects. */
+/** Build the explicit options for the embedded DevTools server. */
 function buildServerArgs(): Record<string, unknown> {
   return {
     browserUrl: cachedBrowserUrl,
@@ -109,8 +110,7 @@ function buildServerArgs(): Record<string, unknown> {
     isolated: false,
     // Filesystem access: allow unrestricted paths since we're a local tool server.
     allowUnrestrictedPaths: true,
-    // Tool category flags — must be set explicitly because we bypass yargs
-    // parsing which would normally apply the defaults.
+    // Keep all tool categories enabled for embedded clients.
     categoryInput: true,
     categoryNavigation: true,
     categoryEmulation: true,
@@ -125,7 +125,11 @@ function buildServerArgs(): Record<string, unknown> {
 }
 
 async function createDevToolsServer(): Promise<DevToolsMcpServer> {
-  return await DevToolsMcpServer.from(buildServerArgs());
+  const serverConfig = ServerConfig.create({ cliArgs: buildServerArgs(), fileArgs: {} });
+  // Each session owns a CDP connection. Closing it disconnects from Chrome
+  // without shutting down mcpuppet's shared browser.
+  const browserManager = new DevToolsBrowserManager(serverConfig);
+  return await DevToolsMcpServer.from(serverConfig, { browserManager });
 }
 
 /** Must be called once after browser launch, before handling requests. */

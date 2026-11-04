@@ -31,3 +31,5 @@ Tests use Node's built-in test runner. The devtools-mcp tests launch a real Chro
 ## Updating dependencies
 
 Use `pnpm audit` to check for vulnerabilities, `pnpm outdated` to list stale packages, and `pnpm update --latest` to update.
+
+After updating dependencies, run `pnpm test` to detect regressions.
